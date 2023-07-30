@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: tracker
+      POSTGRES_PASSWORD: tracker
+      POSTGRES_DB: tracker
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: pg_isready -U tracker
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    logging:
+      driver: none
+    environment:
+      PGADMIN_DEFAULT_EMAIL: root@root.com
+      PGADMIN_DEFAULT_PASSWORD: toor
+    ports:
+      - "5050:80"
+  # migrate:
+  #   image: migrate/migrate:latest
+  #   volumes:
+  #     - ./migrations:/migrations
+  #   command:
+  #     [
+  #       "-path",
+  #       "/migrations",
+  #       "-database",
+  #       "postgresql://tracker:tracker@postgres:5432/tracker?sslmode=disable",
+  #       "up"
+  #     ]
+  #   links:
+  #     - postgres
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: on-failure
+  backend:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # migrate:
+      #   condition: service_completed_successfully
+    restart: on-failure
+    image: tracker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ADDRESS: :9999
+      URL: http://localhost:9999
+      DSN: "postgresql://tracker:tracker@postgres:5432/tracker?sslmode=disable"
+    ports:
+      - "9999:9999"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://$$ADDRESS/health" ]
+      interval: 30s
+      timeout: 3s
+      retries: 5
