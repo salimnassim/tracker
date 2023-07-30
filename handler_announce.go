@@ -83,7 +83,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		}
 
 		// get torrent
-		var torrent *Torrent
+		var torrent Torrent
 		torrent, err = server.store.GetTorrent(ctx, []byte(req.InfoHash))
 		if err != nil && err.Error() != "no rows in result set" {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -91,7 +91,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		}
 
 		// create torrent not found as we track all announced
-		if torrent == nil && err.Error() == "no rows in result set" {
+		if torrent.ID.IsNil() && err.Error() == "no rows in result set" {
 			torrent, err = server.store.AddTorrent(ctx, []byte(req.InfoHash))
 			if err != nil {
 				var pgError *pgconn.PgError
@@ -121,7 +121,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		}
 
 		if !ok {
-			err = server.store.UpsertPeer(ctx, torrent.ID, req)
+			err = server.store.InsertOrUpdatePeer(ctx, torrent.ID, req)
 			if err != nil {
 				log.Error().Err(err).Msg("cant update peer in store")
 				w.WriteHeader(http.StatusInternalServerError)
