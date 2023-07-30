@@ -2,7 +2,6 @@ package tracker
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/go-playground/validator/v10"
 	pgxuuid "github.com/jackc/pgx-gofrs-uuid"
@@ -27,8 +26,7 @@ func NewServer(config *ServerConfig) *Server {
 		pgxuuid.Register(c.TypeMap())
 		return nil
 	}
-
-	pgxpool, err := pgxpool.New(context.Background(), config.DSN)
+	pgxpool, err := pgxpool.NewWithConfig(context.Background(), pgxconfig)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to create pgxpool")
 	}
@@ -39,12 +37,4 @@ func NewServer(config *ServerConfig) *Server {
 		pool:      pgxpool,
 		store:     NewTorrentStore(pgxpool),
 	}
-}
-
-func (server *Server) Run(handler http.Handler) error {
-	err := http.ListenAndServe(server.config.Address, handler)
-	if err != nil {
-		return err
-	}
-	return nil
 }
