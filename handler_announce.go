@@ -65,6 +65,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			Event:      query.Get("event"),
 			IP:         ip,
 			Port:       int(port),
+			Key:        query.Get("key"),
 			Uploaded:   int(uploaded),
 			Downloaded: int(downloaded),
 			Left:       int(left),
@@ -81,6 +82,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
+		// get torrent
 		var torrent *Torrent
 		torrent, err = server.store.GetTorrent(ctx, []byte(req.InfoHash))
 		if err != nil && err.Error() != "no rows in result set" {
@@ -88,6 +90,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
+		// create torrent not found as we track all announced
 		if torrent == nil && err.Error() == "no rows in result set" {
 			torrent, err = server.store.AddTorrent(ctx, []byte(req.InfoHash))
 			if err != nil {
@@ -105,11 +108,25 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			}
 		}
 
-		err = server.store.UpsertPeer(ctx, torrent.ID, req)
-		if err != nil {
-			log.Error().Err(err).Msg("cant add peer to store")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+		// try to update existing record by using query string key
+
+		var ok bool
+		if query.Get("key") != "" {
+			err, ok = server.store.UpdatePeerWithKey(ctx, torrent.ID, req)
+			if err != nil {
+				log.Error().Err(err).Msg("cant update peer with key in store")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
+
+		if !ok {
+			err = server.store.UpsertPeer(ctx, torrent.ID, req)
+			if err != nil {
+				log.Error().Err(err).Msg("cant update peer in store")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
 
 		log.Debug().Msgf("%v", torrent)
