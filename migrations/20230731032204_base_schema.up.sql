@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.torrents
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT torrents_pkey PRIMARY KEY (id),
     CONSTRAINT torrents_info_hash_key UNIQUE (info_hash)
-)
+);
 
 CREATE TABLE IF NOT EXISTS public.peers
 (
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.peers
         REFERENCES public.torrents (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE CASCADE
-)
+);
 
 TABLESPACE pg_default;
 
