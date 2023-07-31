@@ -13,6 +13,7 @@ type TorrentStorable interface {
 	GetTorrents(ctx context.Context) ([]Torrent, error)
 	AddTorrent(ctx context.Context, infoHash []byte) (Torrent, error)
 
+	GetPeers(ctx context.Context, torrentID uuid.UUID) ([]Peer, error)
 	UpdatePeerWithKey(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) (error, bool)
 	InsertOrUpdatePeer(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) error
 
@@ -46,6 +47,24 @@ func (ts *TorrentStore) AddTorrent(ctx context.Context, infoHash []byte) (Torren
 	}
 
 	return torrent, nil
+}
+
+func (ts *TorrentStore) GetPeers(ctx context.Context, torrentID uuid.UUID) ([]Peer, error) {
+	query := `select id, torrent_id, peer_id, ip, port, uploaded, downloaded, "left", event, key, updated_at
+	from peers
+	where torrent_id = $1`
+
+	var peers []Peer
+	rows, err := ts.pool.Query(ctx, query, torrentID)
+	if err != nil {
+		return []Peer{}, err
+	}
+
+	peers, err = pgx.CollectRows[Peer](rows, pgx.RowToStructByName[Peer])
+	if err != nil {
+		return []Peer{}, err
+	}
+	return peers, nil
 }
 
 func (ts *TorrentStore) UpdatePeerWithKey(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) (error, bool) {

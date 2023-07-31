@@ -1,12 +1,14 @@
 package tracker
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"net"
 	"net/http"
 	"strconv"
 
+	"github.com/cristalhq/bencode"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog/log"
@@ -63,11 +65,12 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		// magnet downloads report left as maxint so default it to zero
+		// magnet downloads report left as maxint so default it to one
 		if left == math.MaxInt {
-			left = 0
+			left = 1
 		}
 
+		// has to be exactly 20 bytes
 		infoHash := []byte(query.Get("info_hash"))
 		if len(infoHash) != 20 {
 			log.Info().Msgf("client info hash is not 20 bytes: %s", infoHash)
@@ -75,6 +78,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
+		// has to be exactly 20 bytes
 		peerID := []byte(query.Get("peer_id"))
 		if len(peerID) != 20 {
 			log.Info().Msgf("client peer id is not 20 bytes: %s", peerID)
@@ -153,5 +157,41 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 				return
 			}
 		}
+
+		peers, err := server.store.GetPeers(ctx, torrent.ID)
+		if err != nil {
+			log.Error().Err(err).Msg("cant get peers from store")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		buffer := new(bytes.Buffer)
+		for _, p := range peers {
+			pm, err := p.Marshal()
+			if err != nil {
+				log.Error().Err(err).Msg("cant marshal peer in announce")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			buffer.Write(pm)
+		}
+
+		// todo: make a struct for response
+		announce := map[string]interface{}{
+			"interval":     60,
+			"min interval": 120,
+			"complete":     torrent.Seeders,
+			"incomplete":   torrent.Leechers,
+			"peers":        buffer.String(),
+		}
+
+		res, err := bencode.Marshal(announce)
+		if err != nil {
+			log.Error().Err(err).Msg("cant bencode in announce")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.Write(res)
 	}
 }
