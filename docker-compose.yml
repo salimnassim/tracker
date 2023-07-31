@@ -20,30 +20,30 @@ services:
       PGADMIN_DEFAULT_PASSWORD: toor
     ports:
       - "5050:80"
-  # migrate:
-  #   image: migrate/migrate:latest
-  #   volumes:
-  #     - ./migrations:/migrations
-  #   command:
-  #     [
-  #       "-path",
-  #       "/migrations",
-  #       "-database",
-  #       "postgresql://tracker:tracker@postgres:5432/tracker?sslmode=disable",
-  #       "up"
-  #     ]
-  #   links:
-  #     - postgres
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   restart: on-failure
+  migrate:
+    image: migrate/migrate:latest
+    volumes:
+      - ./migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgresql://tracker:tracker@postgres:5432/tracker?sslmode=disable",
+        "up"
+      ]
+    links:
+      - postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
   backend:
     depends_on:
       postgres:
         condition: service_healthy
-      # migrate:
-      #   condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
     restart: on-failure
     image: tracker:latest
     build:
