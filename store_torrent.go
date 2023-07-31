@@ -52,7 +52,8 @@ func (ts *TorrentStore) AddTorrent(ctx context.Context, infoHash []byte) (Torren
 func (ts *TorrentStore) GetPeers(ctx context.Context, torrentID uuid.UUID) ([]Peer, error) {
 	query := `select id, torrent_id, peer_id, ip, port, uploaded, downloaded, "left", event, key, updated_at
 	from peers
-	where torrent_id = $1`
+	where torrent_id = $1
+	limit 24`
 
 	var peers []Peer
 	rows, err := ts.pool.Query(ctx, query, torrentID)
