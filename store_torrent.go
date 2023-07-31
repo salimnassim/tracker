@@ -70,7 +70,7 @@ func (ts *TorrentStore) GetPeers(ctx context.Context, torrentID uuid.UUID) ([]Pe
 
 func (ts *TorrentStore) UpdatePeerWithKey(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) (error, bool) {
 	query := `update peers set
-	peer_id = $1, ip = $2, port = $3, uploaded = $4::integer, downloaded = $5::integer, "left" = $6::integer, event = $7, updated_at = now()
+	peer_id = $1, ip = $2, port = $3, uploaded = $4, downloaded = $5, "left" = $6, event = $7, updated_at = now()
 	where torrent_id = $8 and key = $9`
 
 	tag, err := ts.pool.Exec(ctx, query,
@@ -85,9 +85,9 @@ func (ts *TorrentStore) UpdatePeerWithKey(ctx context.Context, torrentID uuid.UU
 
 func (ts *TorrentStore) InsertOrUpdatePeer(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) error {
 	query := `insert into peers (id, torrent_id, peer_id, ip, port, uploaded, downloaded, "left", event, key, updated_at)
-	values (gen_random_uuid(), $1, $2, $3, $4::integer, $5::integer, $6::integer, $7::integer, $8, $9, now())
+	values (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, now())
 	on conflict (torrent_id, peer_id) do update set
-	"left" = $10::integer, uploaded = $11::integer, downloaded = $12::integer, updated_at = now(), event = $13`
+	"left" = $10, uploaded = $11, downloaded = $12, updated_at = now(), event = $13`
 
 	_, err := ts.pool.Exec(ctx, query,
 		torrentID, req.PeerID, req.IP, req.Port, req.Uploaded, req.Downloaded, req.Left, req.Event, req.Key,
