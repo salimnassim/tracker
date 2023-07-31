@@ -28,18 +28,17 @@ func main() {
 	// create router
 	r := mux.NewRouter()
 	r.Handle("/health", tracker.HealthHandler())
+
 	r.Handle("/", tracker.HandlerIndex(server))
 	r.Handle("/announce", tracker.AnnounceHandler(server))
-
-	r.Handle("/api/list", tracker.APIListHandler(server))
 
 	log.Info().Msgf("starting tracker (address: %s, announce url: %s)", config.Address, config.AnnounceURL)
 
 	// start goroutines
 	http := &http.Server{
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      5 * time.Second,
 		Addr:              config.Address,
 		Handler:           r,
 	}
