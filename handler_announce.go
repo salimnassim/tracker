@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/cristalhq/bencode"
 	"github.com/go-playground/validator/v10"
@@ -179,8 +178,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		// todo: make a struct for response
 		announce := map[string]interface{}{
-			"interval":     60 * time.Second,
-			"min interval": 120 * time.Second,
+			"interval":     60,
+			"min interval": 120,
 			"complete":     torrent.Seeders,
 			"incomplete":   torrent.Leechers,
 			"peers":        buffer.String(),
