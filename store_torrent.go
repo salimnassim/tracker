@@ -99,9 +99,11 @@ func (ts *TorrentStore) InsertOrUpdatePeer(ctx context.Context, torrentID uuid.U
 }
 
 func (ts *TorrentStore) GetTorrent(ctx context.Context, infoHash []byte) (Torrent, error) {
-	query := `select id, info_hash, completed, created_at, 0 as seeders, 0 as leechers
-	from torrents
-	where info_hash = $1
+	query := `select t.id, t.info_hash, t.completed, t.created_at, 
+		(select count(*) from peers where peers.torrent_id = t.id and peers.left = 0) as seeders,
+		(select count(*) from peers where peers.torrent_id = t.id and peers.left != 0) as leechers
+	from torrents t
+	where t.info_hash = $1
 	limit 1`
 
 	var torrent Torrent
