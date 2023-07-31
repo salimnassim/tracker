@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/cristalhq/bencode"
 	"github.com/go-playground/validator/v10"
@@ -65,7 +66,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		// magnet downloads report left as maxint so default it to one
+		// some magnet downloads report left as maxint, default it to one
 		if left == math.MaxInt {
 			left = 1
 		}
@@ -178,8 +179,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		// todo: make a struct for response
 		announce := map[string]interface{}{
-			"interval":     60,
-			"min interval": 120,
+			"interval":     60 * time.Second,
+			"min interval": 120 * time.Second,
 			"complete":     torrent.Seeders,
 			"incomplete":   torrent.Leechers,
 			"peers":        buffer.String(),
