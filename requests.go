@@ -1,8 +1,8 @@
 package tracker
 
 type AnnounceRequest struct {
-	InfoHash string `db:"info_hash" validate:"required,ascii,len=40"`
-	PeerID   string `db:"peer_id" validate:"required,ascii,len=20"`
+	InfoHash []byte `db:"info_hash" validate:"required,ascii"`
+	PeerID   []byte `db:"peer_id" validate:"required,ascii,len=20"`
 	Event    string `db:"event" validate:"ascii"`
 	IP       string `db:"ip" validate:"required,ip"`
 	Port     int    `db:"port" validate:"required,number"`

@@ -51,8 +51,9 @@ services:
       dockerfile: Dockerfile
     environment:
       ADDRESS: :9999
-      URL: http://localhost:9999
+      ANNOUNCE_URL: http://localhost:9999
       DSN: "postgresql://tracker:tracker@postgres:5432/tracker?sslmode=disable"
+      TEMPLATE_PATH: "./templates/"
     ports:
       - "9999:9999"
     healthcheck:

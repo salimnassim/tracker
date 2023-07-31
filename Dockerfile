@@ -10,6 +10,7 @@ RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -
     ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/tracker /app/tracker
+COPY --from=builder /app/templates /app/templates
 
 EXPOSE 9999
 CMD ["/app/tracker"]

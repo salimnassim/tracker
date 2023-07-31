@@ -1,15 +1,17 @@
 package tracker
 
 type ServerConfig struct {
-	Address string
-	URL     string
-	DSN     string
+	Address      string
+	AnnounceURL  string
+	DSN          string
+	TemplatePath string
 }
 
-func NewServerConfig(address string, url string, dsn string) *ServerConfig {
+func NewServerConfig(address string, announceURL string, dsn string, templatePath string) *ServerConfig {
 	return &ServerConfig{
-		Address: address,
-		URL:     url,
-		DSN:     dsn,
+		Address:      address,
+		AnnounceURL:  announceURL,
+		DSN:          dsn,
+		TemplatePath: templatePath,
 	}
 }

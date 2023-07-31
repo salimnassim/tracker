@@ -17,8 +17,10 @@ func main() {
 	// create config
 	config := tracker.NewServerConfig(
 		os.Getenv("ADDRESS"),
-		os.Getenv("URL"),
-		os.Getenv("DSN"))
+		os.Getenv("ANNOUNCE_URL"),
+		os.Getenv("DSN"),
+		os.Getenv("TEMPLATE_PATH"),
+	)
 
 	// create server
 	server := tracker.NewServer(config)
@@ -26,9 +28,12 @@ func main() {
 	// create router
 	r := mux.NewRouter()
 	r.Handle("/health", tracker.HealthHandler())
+	r.Handle("/", tracker.HandlerIndex(server))
 	r.Handle("/announce", tracker.AnnounceHandler(server))
 
-	log.Info().Msgf("starting tracker (address: %s, url: %s)", config.Address, config.URL)
+	r.Handle("/api/list", tracker.APIListHandler(server))
+
+	log.Info().Msgf("starting tracker (address: %s, announce url: %s)", config.Address, config.AnnounceURL)
 
 	// start goroutines
 	http := &http.Server{

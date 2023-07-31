@@ -32,7 +32,7 @@ func NewTorrentStore(pool *pgxpool.Pool) *TorrentStore {
 func (ts *TorrentStore) AddTorrent(ctx context.Context, infoHash []byte) (Torrent, error) {
 	query := `insert into torrents (id, info_hash, completed, created_at)
 	values (gen_random_uuid(), $1, 0, now())
-	returning id, info_hash, completed, created_at`
+	returning id, info_hash, completed, created_at, 0 as seeders, 0 as leechers`
 
 	rows, err := ts.pool.Query(ctx, query, infoHash)
 	if err != nil {
@@ -80,7 +80,8 @@ func (ts *TorrentStore) InsertOrUpdatePeer(ctx context.Context, torrentID uuid.U
 }
 
 func (ts *TorrentStore) GetTorrent(ctx context.Context, infoHash []byte) (Torrent, error) {
-	query := `select id, info_hash, completed, created_at from torrents
+	query := `select id, info_hash, completed, created_at, 0 as seeders, 0 as leechers
+	from torrents
 	where info_hash = $1
 	limit 1`
 
@@ -100,7 +101,21 @@ func (ts *TorrentStore) GetTorrent(ctx context.Context, infoHash []byte) (Torren
 }
 
 func (ts *TorrentStore) GetTorrents(ctx context.Context) ([]Torrent, error) {
+	query := `select t.id, t.info_hash, t.completed, t.created_at,
+		(select count(*) from peers where peers.torrent_id = t.id and peers.left = 0) as seeders,
+		(select count(*) from peers where peers.torrent_id = t.id and peers.left != 0) as leechers
+	from torrents t`
+
 	var torrents []Torrent
+	rows, err := ts.pool.Query(ctx, query)
+	if err != nil {
+		return []Torrent{}, err
+	}
+
+	torrents, err = pgx.CollectRows[Torrent](rows, pgx.RowToStructByName[Torrent])
+	if err != nil {
+		return []Torrent{}, err
+	}
 
 	return torrents, nil
 }

@@ -2,7 +2,7 @@ package tracker
 
 import (
 	"errors"
-	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"strconv"
@@ -14,6 +14,9 @@ import (
 
 func AnnounceHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// todo: middleware
+		w.Header().Set("Content-Type", "text/plain; charset=ISO-8859-1")
+
 		ctx := r.Context()
 		query := r.URL.Query()
 
@@ -35,33 +38,53 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		port, err := strconv.ParseInt(query.Get("port"), 10, 0)
 		if err != nil {
 			log.Error().Err(err).Msgf("unable to parse int port %s", query.Get("port"))
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		uploaded, err := strconv.ParseInt(query.Get("uploaded"), 10, 0)
 		if err != nil {
 			log.Error().Err(err).Msgf("unable to parse int uploaded %s", query.Get("uploaded"))
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		downloaded, err := strconv.ParseInt(query.Get("downloaded"), 10, 0)
 		if err != nil {
 			log.Error().Err(err).Msgf("unable to parse int downloaded %s", query.Get("downloaded"))
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+
 		left, err := strconv.ParseInt(query.Get("left"), 10, 0)
 		if err != nil {
 			log.Error().Err(err).Msgf("unable to parse int left %s", query.Get("left"))
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// magnet downloads report left as maxint so default it to zero
+		if left == math.MaxInt {
+			left = 0
+		}
+
+		infoHash := []byte(query.Get("info_hash"))
+		if len(infoHash) != 20 {
+			log.Info().Msgf("client info hash is not 20 bytes: %s", infoHash)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		peerID := []byte(query.Get("peer_id"))
+		if len(peerID) != 20 {
+			log.Info().Msgf("client peer id is not 20 bytes: %s", peerID)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		req := AnnounceRequest{
-			InfoHash:   fmt.Sprintf("%x", query.Get("info_hash")),
-			PeerID:     query.Get("peer_id"),
+			InfoHash:   infoHash,
+			PeerID:     peerID,
 			Event:      query.Get("event"),
 			IP:         ip,
 			Port:       int(port),
@@ -86,6 +109,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		var torrent Torrent
 		torrent, err = server.store.GetTorrent(ctx, []byte(req.InfoHash))
 		if err != nil && err.Error() != "no rows in result set" {
+			log.Error().Err(err).Msg("cant query torrent")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -102,7 +126,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 						return
 					}
 				}
-				log.Error().Err(err).Msg("cant add torrente to store")
+				log.Error().Err(err).Msg("cant add torrent to store")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -110,6 +134,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		// try to update existing record by using query string key
 
+		// ok is true if peer was updated with a key
 		var ok bool
 		if query.Get("key") != "" {
 			err, ok = server.store.UpdatePeerWithKey(ctx, torrent.ID, req)
@@ -128,8 +153,5 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 				return
 			}
 		}
-
-		log.Debug().Msgf("%v", torrent)
-
 	}
 }
