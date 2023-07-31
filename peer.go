@@ -10,23 +10,24 @@ import (
 )
 
 type Peer struct {
-	TorrentID  uuid.UUID `db:"parent_id"`
-	PeerID     []byte    `db:"peer_id" validate:"require,len=20"`
-	Port       int       `db:"port" validate:"required,number"`
-	Uploaded   int       `db:"uploaded" validate:"number"`
-	Downloaded int       `db:"downloaded" validate:"number"`
-	Left       int       `db:"left" validate:"number"`
-	Key        string    `db:"key" validate:"ascii"`
-	IP         string    `db:"ip" validate:"ip"`
-	Time       time.Time `db:"time"`
-	Event      string    `db:"event" validate:"ascii"`
+	ID         uuid.UUID `db:"id"`
+	TorrentID  uuid.UUID `db:"torrent_id"`
+	PeerID     []byte    `db:"peer_id"`
+	Port       int       `db:"port"`
+	Uploaded   int       `db:"uploaded"`
+	Downloaded int       `db:"downloaded"`
+	Left       int       `db:"left"`
+	Key        string    `db:"key"`
+	IP         net.IP    `db:"ip"`
+	UpdatedAt  time.Time `db:"updated_at"`
+	Event      string    `db:"event"`
 }
 
 func (peer *Peer) Marshal() ([]byte, error) {
 	buffer := new(bytes.Buffer)
 
 	err := binary.Write(buffer, binary.BigEndian, binary.BigEndian.Uint32(
-		(net.ParseIP(peer.IP).To4()),
+		(net.ParseIP(peer.IP.String()).To4()),
 	))
 
 	if err != nil {

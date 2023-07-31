@@ -1,10 +1,13 @@
 package tracker
 
-import "testing"
+import (
+	"net"
+	"testing"
+)
 
 func TestPeerMarshal(t *testing.T) {
 	peer := &Peer{
-		IP:   "127.0.0.1",
+		IP:   net.IPv4(127, 0, 0, 1),
 		Port: 9999,
 	}
 
