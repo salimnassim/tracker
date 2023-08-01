@@ -29,7 +29,9 @@ func main() {
 	r := mux.NewRouter()
 	r.Handle("/health", tracker.HealthHandler())
 
-	r.Handle("/", tracker.HandlerIndex(server))
+	r.Handle("/", tracker.IndexHandler(server))
+	r.Handle("/torrent/{id}", tracker.TorrentHandler(server))
+
 	r.Handle("/announce", tracker.AnnounceHandler(server))
 
 	log.Info().Msgf("starting tracker (address: %s, announce url: %s)", config.Address, config.AnnounceURL)

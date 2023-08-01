@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/gofrs/uuid"
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 )
 
-func HandlerIndex(server *Server) http.HandlerFunc {
+func IndexHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -36,6 +38,49 @@ func HandlerIndex(server *Server) http.HandlerFunc {
 		err = tmpl.Execute(w, dto)
 		if err != nil {
 			log.Error().Err(err).Msg("cant execute template in index")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+	}
+}
+
+func TorrentHandler(server *Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		vars := mux.Vars(r)
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+		uuid, err := uuid.FromString(vars["id"])
+		if err != nil {
+			log.Error().Err(err).Msg("cant create uuid from string in torrent")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		peers, err := server.store.GetPeers(ctx, uuid)
+		if err != nil {
+			log.Error().Err(err).Msg("cant get peers in torrent")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		tmpl, err := template.ParseFiles(filepath.Join(server.config.TemplatePath, "torrent.html"))
+		if err != nil {
+			log.Error().Err(err).Msg("cant parse template in torrent")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// todo: make a struct for view
+		dto := map[string]interface{}{
+			"Peers": peers,
+		}
+
+		err = tmpl.Execute(w, dto)
+		if err != nil {
+			log.Error().Err(err).Msg("cant execute template in torrent")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
