@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -40,4 +41,21 @@ func (peer *Peer) Marshal() ([]byte, error) {
 	}
 
 	return buffer.Bytes(), nil
+}
+
+// Tries to return client type based on peer_id
+func (peer *Peer) Client() string {
+
+	client := strings.ToLower(string(peer.PeerID))
+	if strings.HasPrefix(client, "-lt") {
+		return "libtorrent"
+	}
+	if strings.HasPrefix(client, "-tr") {
+		return "Transmission"
+	}
+	if strings.HasPrefix(client, "-ut") {
+		return "µtorrent"
+	}
+
+	return "unknown"
 }

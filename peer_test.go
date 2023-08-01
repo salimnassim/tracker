@@ -21,3 +21,17 @@ func TestPeerMarshal(t *testing.T) {
 		t.Errorf("want: %v, got %v", want, got)
 	}
 }
+
+func TestPeerClient(t *testing.T) {
+	peer := &Peer{
+		PeerID: []byte{45, 84, 82, 51, 48, 48, 48, 45, 100, 121, 98, 119, 54, 108, 115, 110, 115, 99, 49, 55},
+	}
+
+	got := peer.Client()
+	want := "Transmission"
+
+	if got != want {
+		t.Errorf("want: %v, got %v", want, got)
+	}
+
+}
