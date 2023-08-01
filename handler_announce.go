@@ -113,7 +113,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		var torrent Torrent
 		torrent, err = server.store.GetTorrent(ctx, []byte(req.InfoHash))
 		if err != nil && err.Error() != "no rows in result set" {
-			log.Error().Err(err).Msg("cant query torrent")
+			log.Error().Err(err).Msg("cant query torrent in announce")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -125,7 +125,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 				var pgError *pgconn.PgError
 				if errors.As(err, &pgError) {
 					if pgError.Code == "23505" {
-						log.Error().Err(err).Msg("duplicate torrent info_hash on insert")
+						log.Error().Err(err).Msg("duplicate torrent info_hash on insert in announce")
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -143,7 +143,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		if query.Get("key") != "" {
 			err, ok = server.store.UpdatePeerWithKey(ctx, torrent.ID, req)
 			if err != nil {
-				log.Error().Err(err).Msg("cant update peer with key in store")
+				log.Error().Err(err).Msg("cant update peer with key in announce")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -152,7 +152,17 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		if !ok {
 			err = server.store.InsertOrUpdatePeer(ctx, torrent.ID, req)
 			if err != nil {
-				log.Error().Err(err).Msg("cant update peer in store")
+				log.Error().Err(err).Msg("cant upsert peer in announce")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
+
+		// increment completed by one if event is sent
+		if req.Event == "completed" {
+			err := server.store.IncTorrentCompleted(ctx, torrent.ID)
+			if err != nil {
+				log.Error().Err(err).Msg("cant increment torrent completed in announce")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -160,7 +170,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		peers, err := server.store.GetPeers(ctx, torrent.ID)
 		if err != nil {
-			log.Error().Err(err).Msg("cant get peers from store")
+			log.Error().Err(err).Msg("cant get peers in announce")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
