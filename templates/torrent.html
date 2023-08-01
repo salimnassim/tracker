@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>tracker index</title>
+    <title>torrent details</title>
     <style>
       body {
         margin: 0;
@@ -43,22 +43,24 @@
       <thead>
         <tr>
           <td>ID</td>
-          <td>Hash</td>
-          <td>Seeders</td>
-          <td>Leechers</td>
-          <td>Completed</td>
+          <td>Uploaded</td>
+          <td>Downloaded</td>
+          <td>Left</td>
+          <td>Event</td>
+          <td>Client</td>
           <td>Created At</td>
         </tr>
       </thead>
       <tbody>
-        {{range .Torrents}}
+        {{range .Peers}}
         <tr>
-          <td><a alt="View torrent details" href="/torrent/{{.ID}}">{{.ID}}</a></td>
-          <td><a alt="Magnet download link" href="magnet:?xt=urn:btih:{{printf "%x" .InfoHash}}&tr={{ $.AnnounceURL }}">{{printf "%x" .InfoHash}}</a></td>
-          <td>{{.Seeders}}</td>
-          <td>{{.Leechers}}</td>
-          <td>{{.Completed}}</td>
-          <td>{{.CreatedAt}}</td>
+          <td>{{.ID}}</td>
+          <td>{{.Uploaded}}</td>
+          <td>{{.Downloaded}}</td>
+          <td>{{.Left}}</td>
+          <td>{{.Event}}</td>
+          <td>{{.Client}}</td>
+          <td>{{.UpdatedAt}}</td>
         </tr>
         {{end}}
       </tbody>
