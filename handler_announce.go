@@ -162,6 +162,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		// create torrent not found as we track all announced
 		if torrent.ID.IsNil() && err.Error() == "no rows in result set" {
 			torrent, err = server.store.AddTorrent(ctx, []byte(req.InfoHash))
+			// todo: prom
 			if err != nil {
 				var pgError *pgconn.PgError
 				if errors.As(err, &pgError) {
@@ -194,7 +195,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		}
 
 		if !ok {
-			err = server.store.InsertOrUpdatePeer(ctx, torrent.ID, req)
+			err = server.store.UpsertPeer(ctx, torrent.ID, req)
 			if err != nil {
 				log.Error().Err(err).Msg("cant upsert peer in announce")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -204,7 +205,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		// increment completed by one if event is sent
 		if req.Event == "completed" {
-			err := server.store.IncTorrentCompleted(ctx, torrent.ID)
+			err := server.store.IncrementTorrent(ctx, torrent.ID)
 			if err != nil {
 				log.Error().Err(err).Msg("cant increment torrent completed in announce")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -212,7 +213,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			}
 		}
 
-		peers, err := server.store.GetPeers(ctx, torrent.ID)
+		peers, err := server.store.AllPeers(ctx, torrent.ID)
 		if err != nil {
 			log.Error().Err(err).Msg("cant get peers in announce")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -244,6 +245,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			"peers":        buffer.String(),
 		}
 
+		// todo: prom
 		reply(w, announce, http.StatusOK)
 	}
 }

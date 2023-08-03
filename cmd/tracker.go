@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"time"
@@ -12,6 +13,7 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	// create config
@@ -36,7 +38,6 @@ func main() {
 
 	log.Info().Msgf("starting tracker (address: %s, announce url: %s)", config.Address, config.AnnounceURL)
 
-	// start goroutines
 	http := &http.Server{
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
@@ -44,6 +45,16 @@ func main() {
 		Addr:              config.Address,
 		Handler:           r,
 	}
+
+	// remove stale peers every 5 minutes
+	server.RunTask(5*time.Minute, func(ts tracker.TorrentStorable) {
+		_, err := ts.CleanPeers(ctx, 1*time.Hour*24)
+		if err != nil {
+			log.Error().Err(err).Msg("cant clean peers in task")
+			return
+		}
+		// todo: prom
+	})
 
 	err := http.ListenAndServe()
 	if err != nil {
