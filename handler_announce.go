@@ -12,20 +12,35 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/exp/slices"
 )
+
+// Writes statusCode header and bencoded v.
+func reply(w http.ResponseWriter, v map[string]interface{}, statusCode int) {
+	bytes, err := bencode.Marshal(v)
+	if err != nil {
+		log.Error().Err(err).Msg("cant bencode ok reply")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(statusCode)
+	w.Write(bytes)
+}
 
 func AnnounceHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// todo: middleware
-		w.Header().Set("Content-Type", "text/plain; charset=ISO-8859-1")
-
 		ctx := r.Context()
 		query := r.URL.Query()
 
+		// todo: middleware
+		w.Header().Set("Content-Type", "text/plain; charset=ISO-8859-1")
+
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			log.Error().Err(err).Msg("unable to split host/port in announce")
-			w.WriteHeader(http.StatusInternalServerError)
+			failure := map[string]interface{}{
+				"failure reason": "internal server error",
+			}
+			reply(w, failure, http.StatusInternalServerError)
 			return
 		}
 
@@ -39,29 +54,45 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		port, err := strconv.ParseInt(query.Get("port"), 10, 0)
 		if err != nil {
-			log.Error().Err(err).Msgf("unable to parse int port %s", query.Get("port"))
-			w.WriteHeader(http.StatusBadRequest)
+			failure := map[string]interface{}{
+				"failure reason": "port is not valid",
+			}
+			reply(w, failure, http.StatusBadRequest)
 			return
 		}
 
 		uploaded, err := strconv.ParseInt(query.Get("uploaded"), 10, 0)
 		if err != nil {
-			log.Error().Err(err).Msgf("unable to parse int uploaded %s", query.Get("uploaded"))
-			w.WriteHeader(http.StatusBadRequest)
+			failure := map[string]interface{}{
+				"failure reason": "uploaded is not valid",
+			}
+			reply(w, failure, http.StatusBadRequest)
 			return
 		}
 
 		downloaded, err := strconv.ParseInt(query.Get("downloaded"), 10, 0)
 		if err != nil {
-			log.Error().Err(err).Msgf("unable to parse int downloaded %s", query.Get("downloaded"))
-			w.WriteHeader(http.StatusBadRequest)
+			failure := map[string]interface{}{
+				"failure reason": "downloaded is not valid",
+			}
+			reply(w, failure, http.StatusBadRequest)
 			return
 		}
 
 		left, err := strconv.ParseInt(query.Get("left"), 10, 0)
 		if err != nil {
-			log.Error().Err(err).Msgf("unable to parse int left %s", query.Get("left"))
-			w.WriteHeader(http.StatusBadRequest)
+			failure := map[string]interface{}{
+				"failure reason": "left is not valid",
+			}
+			reply(w, failure, http.StatusBadRequest)
+			return
+		}
+
+		if !slices.Contains([]string{"started", "stopped", "completed", ""}, query.Get("event")) {
+			failure := map[string]interface{}{
+				"failure reason": "event is not valid",
+			}
+			reply(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -74,7 +105,10 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		infoHash := []byte(query.Get("info_hash"))
 		if len(infoHash) != 20 {
 			log.Info().Msgf("client info hash is not 20 bytes: %s", infoHash)
-			w.WriteHeader(http.StatusBadRequest)
+			failure := map[string]interface{}{
+				"failure reason": "info_hash is not valid",
+			}
+			reply(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -82,7 +116,10 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		peerID := []byte(query.Get("peer_id"))
 		if len(peerID) != 20 {
 			log.Info().Msgf("client peer id is not 20 bytes: %s", peerID)
-			w.WriteHeader(http.StatusBadRequest)
+			failure := map[string]interface{}{
+				"failure reason": "peer_id is not valid",
+			}
+			reply(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -100,12 +137,16 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		err = server.validator.Struct(req)
 		if err != nil {
-			// todo: wrap errors
 			errors := err.(validator.ValidationErrors)
 			for _, v := range errors {
-				log.Error().Msgf("error validation field %s: %s", v.Field(), v.Error())
+				// send first error as a failure reason
+				// todo: make the message more user friendly
+				failure := map[string]interface{}{
+					"failure reason": v.Error(),
+				}
+				reply(w, failure, http.StatusBadRequest)
+				return
 			}
-			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -130,7 +171,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 						return
 					}
 				}
-				log.Error().Err(err).Msg("cant add torrent to store")
+				log.Error().Err(err).Msg("cant add torrent to store in announce")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -144,7 +185,10 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			err, ok = server.store.UpdatePeerWithKey(ctx, torrent.ID, req)
 			if err != nil {
 				log.Error().Err(err).Msg("cant update peer with key in announce")
-				w.WriteHeader(http.StatusInternalServerError)
+				failure := map[string]interface{}{
+					"failure reason": "key is not valid",
+				}
+				reply(w, failure, http.StatusUnauthorized)
 				return
 			}
 		}
@@ -183,7 +227,12 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			buffer.Write(pm)
+			_, err = buffer.Write(pm)
+			if err != nil {
+				log.Error().Err(err).Msg("cant write marshalled peer to buffer in announce")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// todo: make a struct for response
@@ -195,13 +244,6 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			"peers":        buffer.String(),
 		}
 
-		res, err := bencode.Marshal(announce)
-		if err != nil {
-			log.Error().Err(err).Msg("cant bencode in announce")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		w.Write(res)
+		reply(w, announce, http.StatusOK)
 	}
 }

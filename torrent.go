@@ -14,8 +14,8 @@ type Torrent struct {
 	Completed int       `db:"completed" json:"completed"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 
-	Seeders  int
-	Leechers int
+	Seeders  int `db:"seeders" json:"seeders"`
+	Leechers int `db:"leechers" json:"leechers"`
 }
 
 func (t *Torrent) MarshalJSON() ([]byte, error) {
