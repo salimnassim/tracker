@@ -56,6 +56,5 @@ func (peer *Peer) Client() string {
 	if strings.HasPrefix(client, "-ut") {
 		return "µtorrent"
 	}
-
 	return "unknown"
 }

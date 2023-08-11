@@ -15,7 +15,7 @@ func IndexHandler(server *Server) http.HandlerFunc {
 		ctx := r.Context()
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-		torrents, err := server.store.GetTorrents(ctx)
+		torrents, err := server.store.AllTorrents(ctx)
 		if err != nil {
 			log.Error().Err(err).Msg("cant get torrents in index")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -41,7 +41,6 @@ func IndexHandler(server *Server) http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
 	}
 }
 
@@ -59,7 +58,7 @@ func TorrentHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		peers, err := server.store.GetPeers(ctx, uuid)
+		peers, err := server.store.AllPeers(ctx, uuid)
 		if err != nil {
 			log.Error().Err(err).Msg("cant get peers in torrent")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -84,6 +83,5 @@ func TorrentHandler(server *Server) http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
 	}
 }
