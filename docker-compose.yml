@@ -53,7 +53,7 @@ services:
       ADDRESS: :9999
       ANNOUNCE_URL: http://localhost:9999/announce
       DSN: "postgresql://tracker:tracker@postgres:5432/tracker?sslmode=disable"
-      TEMPLATE_PATH: "./templates/"
+      TEMPLATE_PATH: "/app/templates/"
     ports:
       - "9999:9999"
     healthcheck:
