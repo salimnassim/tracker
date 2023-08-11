@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/salimnassim/tracker"
@@ -29,6 +30,7 @@ func main() {
 
 	// create router
 	r := mux.NewRouter()
+	r.Handle("/metrics", promhttp.Handler())
 	r.Handle("/health", tracker.HealthHandler())
 
 	r.Handle("/", tracker.IndexHandler(server))
@@ -48,12 +50,11 @@ func main() {
 
 	// remove stale peers every 5 minutes
 	server.RunTask(5*time.Minute, func(ts tracker.TorrentStorable) {
-		_, err := ts.CleanPeers(ctx, 1*time.Hour*24)
+		_, err := ts.CleanPeers(ctx, 24*time.Hour)
 		if err != nil {
 			log.Error().Err(err).Msg("cant clean peers in task")
 			return
 		}
-		// todo: prom
 	})
 
 	err := http.ListenAndServe()
