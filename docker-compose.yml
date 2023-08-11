@@ -1,6 +1,23 @@
 services:
+  prometheus:
+    image: "prom/prometheus"
+    container_name: prometheus-tracker
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    environment:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana-tracker
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
   postgres:
     image: postgres:latest
+    container_name: postgres-tracker
     restart: always
     environment:
       POSTGRES_USER: tracker
@@ -11,6 +28,7 @@ services:
     healthcheck:
       test: pg_isready -U tracker
   pgadmin:
+    container_name: pgadmin-tracker
     image: dpage/pgadmin4
     restart: always
     logging:
@@ -22,6 +40,7 @@ services:
       - "5050:80"
   migrate:
     image: migrate/migrate:latest
+    container_name: migrate-tracker
     volumes:
       - ./migrations:/migrations
     command:
@@ -46,6 +65,7 @@ services:
         condition: service_completed_successfully
     restart: on-failure
     image: tracker:latest
+    container_name: backend-tracker
     build:
       context: .
       dockerfile: Dockerfile

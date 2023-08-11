@@ -11,8 +11,28 @@ import (
 	"github.com/cristalhq/bencode"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/exp/slices"
+)
+
+var (
+	// The total number of promAnnounces.
+	promAnnounces = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tracker_announces",
+		Help: "The total number of announces",
+	})
+	// The total number of announce replies.
+	promAnnouncesReply = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tracker_announces_reply",
+		Help: "The total number of announce replies",
+	})
+	// The total number of promAdded torrents.
+	promAdded = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tracker_torrents_added",
+		Help: "The total number of added torrents",
+	})
 )
 
 // Writes statusCode header and bencoded v.
@@ -157,6 +177,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
+		promAnnounces.Inc()
+
 		var torrent Torrent
 		// get torrent
 		torrent, err = server.store.GetTorrent(ctx, []byte(req.InfoHash))
@@ -169,7 +191,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		// create torrent not found as we track all announced
 		if torrent.ID.IsNil() && err.Error() == "no rows in result set" {
 			torrent, err = server.store.AddTorrent(ctx, []byte(req.InfoHash))
-			// todo: prom
+			promAdded.Inc()
 			if err != nil {
 				var pgError *pgconn.PgError
 				if errors.As(err, &pgError) {
@@ -252,7 +274,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			"peers":        buffer.String(),
 		}
 
-		// todo: prom
+		promAnnouncesReply.Inc()
 		reply(w, announce, http.StatusOK)
 	}
 }
