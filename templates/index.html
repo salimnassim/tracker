@@ -54,7 +54,7 @@
         {{range .Torrents}}
         <tr>
           <td><a alt="View torrent details" href="/torrent/{{.ID}}">{{.ID}}</a></td>
-          <td><a alt="Magnet download link" href="magnet:?xt=urn:btih:{{printf "%x" .InfoHash}}&tr={{ $.AnnounceURL }}">{{printf "%x" .InfoHash}}</a></td>
+          <td><a alt="Magnet download link" href="magnet:?xt=urn:btih:{{printf "%x" .InfoHash}}&tr={{ $.AnnounceURL }}">🧲 {{printf "%x" .InfoHash}}</a></td>
           <td>{{.Seeders}}</td>
           <td>{{.Leechers}}</td>
           <td>{{.Completed}}</td>
