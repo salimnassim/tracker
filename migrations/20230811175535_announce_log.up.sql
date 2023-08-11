@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.announce_log
     "left" bigint NOT NULL,
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT announce_log_pkey PRIMARY KEY (id)
-)
+);
 
 ALTER TABLE IF EXISTS public.announce_log
     OWNER to tracker;
