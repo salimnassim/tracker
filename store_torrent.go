@@ -87,6 +87,7 @@ func (ts *TorrentStore) AllPeers(ctx context.Context, torrentID uuid.UUID) ([]Pe
 	if err != nil {
 		return []Peer{}, err
 	}
+	defer rows.Close()
 
 	peers, err = pgx.CollectRows[Peer](rows, pgx.RowToStructByName[Peer])
 	if err != nil {
@@ -160,6 +161,7 @@ func (ts *TorrentStore) AllTorrents(ctx context.Context) ([]Torrent, error) {
 	if err != nil {
 		return []Torrent{}, err
 	}
+	defer rows.Close()
 
 	torrents, err = pgx.CollectRows[Torrent](rows, pgx.RowToStructByName[Torrent])
 	if err != nil {
