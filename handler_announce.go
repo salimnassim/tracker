@@ -150,8 +150,15 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		// get torrent
+		err = server.store.Log(ctx, req)
+		if err != nil {
+			log.Error().Err(err).Msg("cant log in announce")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		var torrent Torrent
+		// get torrent
 		torrent, err = server.store.GetTorrent(ctx, []byte(req.InfoHash))
 		if err != nil && err.Error() != "no rows in result set" {
 			log.Error().Err(err).Msg("cant query torrent in announce")
@@ -183,7 +190,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		// ok is true if peer was updated with a key
 		var ok bool
 		if query.Get("key") != "" {
-			err, ok = server.store.UpdatePeerWithKey(ctx, torrent.ID, req)
+			ok, err = server.store.UpdatePeerWithKey(ctx, torrent.ID, req)
 			if err != nil {
 				log.Error().Err(err).Msg("cant update peer with key in announce")
 				failure := map[string]interface{}{
