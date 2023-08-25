@@ -45,7 +45,6 @@ func (peer *Peer) Marshal() ([]byte, error) {
 
 // Tries to return client type based on peer_id
 func (peer *Peer) Client() string {
-
 	client := strings.ToLower(string(peer.PeerID))
 	if strings.HasPrefix(client, "-lt") {
 		return "libtorrent"
@@ -55,6 +54,9 @@ func (peer *Peer) Client() string {
 	}
 	if strings.HasPrefix(client, "-ut") {
 		return "µtorrent"
+	}
+	if strings.HasPrefix(client, "-qb") {
+		return "qBittorrent"
 	}
 	return "unknown"
 }

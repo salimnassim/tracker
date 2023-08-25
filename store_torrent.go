@@ -172,7 +172,6 @@ func (ts *TorrentStore) AllTorrents(ctx context.Context) ([]Torrent, error) {
 }
 
 // Removers stale peers that have not updated in a x duration.
-// interval should be a pg compatible string such as '1 day'
 func (ts *TorrentStore) CleanPeers(ctx context.Context, interval time.Duration) (int, error) {
 	query := `delete from peers	where updated_at < now() - $1::interval`
 
