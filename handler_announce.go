@@ -36,7 +36,7 @@ var (
 )
 
 // Writes statusCode header and bencoded v.
-func reply(w http.ResponseWriter, v map[string]interface{}, statusCode int) {
+func reply(w http.ResponseWriter, v any, statusCode int) {
 	bytes, err := bencode.Marshal(v)
 	if err != nil {
 		log.Error().Err(err).Msg("cant bencode ok reply")
@@ -57,8 +57,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			failure := map[string]interface{}{
-				"failure reason": "internal server error",
+			failure := ErrorResponse{
+				FailureReason: "internal server error",
 			}
 			reply(w, failure, http.StatusInternalServerError)
 			return
@@ -74,8 +74,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		port, err := strconv.ParseInt(query.Get("port"), 10, 0)
 		if err != nil {
-			failure := map[string]interface{}{
-				"failure reason": "port is not valid",
+			failure := ErrorResponse{
+				FailureReason: "port is not valid",
 			}
 			reply(w, failure, http.StatusBadRequest)
 			return
@@ -83,8 +83,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		uploaded, err := strconv.ParseInt(query.Get("uploaded"), 10, 0)
 		if err != nil {
-			failure := map[string]interface{}{
-				"failure reason": "uploaded is not valid",
+			failure := ErrorResponse{
+				FailureReason: "uploaded is not valid",
 			}
 			reply(w, failure, http.StatusBadRequest)
 			return
@@ -92,8 +92,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		downloaded, err := strconv.ParseInt(query.Get("downloaded"), 10, 0)
 		if err != nil {
-			failure := map[string]interface{}{
-				"failure reason": "downloaded is not valid",
+			failure := ErrorResponse{
+				FailureReason: "downloaded is not valid",
 			}
 			reply(w, failure, http.StatusBadRequest)
 			return
@@ -101,16 +101,16 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		left, err := strconv.ParseInt(query.Get("left"), 10, 0)
 		if err != nil {
-			failure := map[string]interface{}{
-				"failure reason": "left is not valid",
+			failure := ErrorResponse{
+				FailureReason: "left is not valid",
 			}
 			reply(w, failure, http.StatusBadRequest)
 			return
 		}
 
 		if !slices.Contains([]string{"started", "stopped", "completed", ""}, query.Get("event")) {
-			failure := map[string]interface{}{
-				"failure reason": "event is not valid",
+			failure := ErrorResponse{
+				FailureReason: "event is not valid",
 			}
 			reply(w, failure, http.StatusBadRequest)
 			return
@@ -125,8 +125,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		infoHash := []byte(query.Get("info_hash"))
 		if len(infoHash) != 20 {
 			log.Info().Msgf("client info hash is not 20 bytes: %s", infoHash)
-			failure := map[string]interface{}{
-				"failure reason": "info_hash is not valid",
+			failure := ErrorResponse{
+				FailureReason: "info_hash is not valid",
 			}
 			reply(w, failure, http.StatusBadRequest)
 			return
@@ -136,8 +136,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		peerID := []byte(query.Get("peer_id"))
 		if len(peerID) != 20 {
 			log.Info().Msgf("client peer id is not 20 bytes: %s", peerID)
-			failure := map[string]interface{}{
-				"failure reason": "peer_id is not valid",
+			failure := ErrorResponse{
+				FailureReason: "peer_id is not valid",
 			}
 			reply(w, failure, http.StatusBadRequest)
 			return
@@ -161,8 +161,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			for _, v := range errors {
 				// send first error as a failure reason
 				// todo: make the message more user friendly
-				failure := map[string]interface{}{
-					"failure reason": v.Error(),
+				failure := ErrorResponse{
+					FailureReason: v.Error(),
 				}
 				reply(w, failure, http.StatusBadRequest)
 				return
@@ -215,8 +215,8 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			ok, err = server.store.UpdatePeerWithKey(ctx, torrent.ID, req)
 			if err != nil {
 				log.Error().Err(err).Msg("cant update peer with key in announce")
-				failure := map[string]interface{}{
-					"failure reason": "key is not valid",
+				failure := ErrorResponse{
+					FailureReason: "key is not valid",
 				}
 				reply(w, failure, http.StatusUnauthorized)
 				return
@@ -265,13 +265,12 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			}
 		}
 
-		// todo: make a struct for response
-		announce := map[string]interface{}{
-			"interval":     60,
-			"min interval": 120,
-			"complete":     torrent.Seeders,
-			"incomplete":   torrent.Leechers,
-			"peers":        buffer.String(),
+		announce := AnnounceResponse{
+			Interval:    60,
+			MinInterval: 120,
+			Complete:    torrent.Seeders,
+			Incomplete:  torrent.Leechers,
+			Peers:       buffer.String(),
 		}
 
 		promAnnouncesReply.Inc()
