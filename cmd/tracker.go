@@ -28,6 +28,9 @@ func main() {
 	// create server
 	server := tracker.NewServer(config)
 
+	// cache templates
+	server.CacheTemplates()
+
 	// create router
 	r := mux.NewRouter()
 	r.Handle("/metrics", promhttp.Handler())

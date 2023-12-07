@@ -2,6 +2,9 @@ package tracker
 
 import (
 	"context"
+	"html/template"
+	"os"
+	"path"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -14,6 +17,7 @@ type Server struct {
 	validator *validator.Validate
 	pool      *pgxpool.Pool
 	store     TorrentStorable
+	templates Templater
 }
 
 func NewServer(config *ServerConfig) *Server {
@@ -31,6 +35,7 @@ func NewServer(config *ServerConfig) *Server {
 		validator: validator.New(),
 		pool:      pgxpool,
 		store:     NewTorrentStore(pgxpool),
+		templates: NewTemplateStore(),
 	}
 }
 
@@ -42,4 +47,21 @@ func (sv *Server) RunTask(d time.Duration, f func(ts TorrentStorable)) {
 			f(sv.store)
 		}
 	}()
+}
+
+func (sv *Server) CacheTemplates() {
+	// index
+	tplIndex := template.Must(
+		template.ParseFiles(
+			path.Join(os.Getenv("TEMPLATE_PATH"), "index.html"),
+		),
+	)
+	sv.templates.Add(TemplateIndex, tplIndex)
+	// torrent
+	tplTorrent := template.Must(
+		template.ParseFiles(
+			path.Join(os.Getenv("TEMPLATE_PATH"), "torrent.html"),
+		),
+	)
+	sv.templates.Add(TemplateTorrent, tplTorrent)
 }
