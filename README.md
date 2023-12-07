@@ -8,9 +8,7 @@ The HTTP server provides a torrent index list with magnet support on the `/` rou
 - [x] Compact peer format
 - [ ] Scrape
 - [ ] UDP Tracker
-- [ ] Upload metadata files
 - [ ] IPv6
-- [ ] GeoIP matching
 
 #### Resources
 
