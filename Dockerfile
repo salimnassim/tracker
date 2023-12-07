@@ -5,12 +5,7 @@ RUN go mod download
 COPY . ./
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o ./tracker ./cmd
 
-FROM debian:stable-slim
-RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ca-certificates curl && rm -rf /var/lib/apt/lists/*
-
+FROM scratch
 COPY --from=builder /app/tracker /app/tracker
 COPY --from=builder /app/templates /app/templates
-
-EXPOSE 9999
 CMD ["/app/tracker"]

@@ -27,17 +27,6 @@ services:
       - "5432:5432"
     healthcheck:
       test: pg_isready -U tracker
-  pgadmin:
-    container_name: pgadmin-tracker
-    image: dpage/pgadmin4
-    restart: always
-    logging:
-      driver: none
-    environment:
-      PGADMIN_DEFAULT_EMAIL: root@root.com
-      PGADMIN_DEFAULT_PASSWORD: toor
-    ports:
-      - "5050:80"
   migrate:
     image: migrate/migrate:latest
     container_name: migrate-tracker
@@ -70,7 +59,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      ADDRESS: :9999
+      ADDRESS: 0.0.0.0:9999
       ANNOUNCE_URL: http://localhost:9999/announce
       DSN: "postgresql://tracker:tracker@postgres:5432/tracker?sslmode=disable"
       TEMPLATE_PATH: "/app/templates/"
