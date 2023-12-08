@@ -10,7 +10,7 @@ import (
 var (
 	// The total number of health checks.
 	promChecks = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_healthchecks",
+		Name: "tracker_health",
 		Help: "The total number of health checks",
 	})
 )

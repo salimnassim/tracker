@@ -18,25 +18,25 @@ import (
 )
 
 var (
-	// The total number of promAnnounces.
-	promAnnounces = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_announces",
+	// The total number of promAnnounce.
+	promAnnounce = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tracker_announce",
 		Help: "The total number of announces",
 	})
 	// The total number of announce replies.
-	promAnnouncesReply = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_announces_reply",
+	promAnnounceReply = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tracker_announce_reply",
 		Help: "The total number of announce replies",
 	})
-	// The total number of promAdded torrents.
-	promAdded = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_torrents_added",
-		Help: "The total number of added torrents",
+	// The total number of tracked torrents over time.
+	promTracked = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tracker_tracked",
+		Help: "The total number of tracked torrents over time",
 	})
 )
 
 // Writes statusCode header and bencoded v.
-func reply(w http.ResponseWriter, v any, statusCode int) {
+func replyBencode(w http.ResponseWriter, v any, statusCode int) {
 	bytes, err := bencode.Marshal(v)
 	if err != nil {
 		log.Error().Err(err).Msg("cant bencode ok reply")
@@ -52,7 +52,6 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		ctx := r.Context()
 		query := r.URL.Query()
 
-		// todo: middleware
 		w.Header().Set("Content-Type", "text/plain; charset=ISO-8859-1")
 
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -60,7 +59,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			failure := ErrorResponse{
 				FailureReason: "internal server error",
 			}
-			reply(w, failure, http.StatusInternalServerError)
+			replyBencode(w, failure, http.StatusInternalServerError)
 			return
 		}
 
@@ -77,7 +76,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			failure := ErrorResponse{
 				FailureReason: "port is not valid",
 			}
-			reply(w, failure, http.StatusBadRequest)
+			replyBencode(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -86,7 +85,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			failure := ErrorResponse{
 				FailureReason: "uploaded is not valid",
 			}
-			reply(w, failure, http.StatusBadRequest)
+			replyBencode(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -95,7 +94,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			failure := ErrorResponse{
 				FailureReason: "downloaded is not valid",
 			}
-			reply(w, failure, http.StatusBadRequest)
+			replyBencode(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -104,7 +103,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			failure := ErrorResponse{
 				FailureReason: "left is not valid",
 			}
-			reply(w, failure, http.StatusBadRequest)
+			replyBencode(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -112,7 +111,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			failure := ErrorResponse{
 				FailureReason: "event is not valid",
 			}
-			reply(w, failure, http.StatusBadRequest)
+			replyBencode(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -128,7 +127,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			failure := ErrorResponse{
 				FailureReason: "info_hash is not valid",
 			}
-			reply(w, failure, http.StatusBadRequest)
+			replyBencode(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -139,7 +138,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			failure := ErrorResponse{
 				FailureReason: "peer_id is not valid",
 			}
-			reply(w, failure, http.StatusBadRequest)
+			replyBencode(w, failure, http.StatusBadRequest)
 			return
 		}
 
@@ -164,7 +163,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 				failure := ErrorResponse{
 					FailureReason: v.Error(),
 				}
-				reply(w, failure, http.StatusBadRequest)
+				replyBencode(w, failure, http.StatusBadRequest)
 				return
 			}
 			return
@@ -177,11 +176,11 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		promAnnounces.Inc()
+		promAnnounce.Inc()
 
 		var torrent Torrent
 		// get torrent
-		torrent, err = server.store.GetTorrent(ctx, []byte(req.InfoHash))
+		torrent, err = server.store.Torrent(ctx, []byte(req.InfoHash))
 		if err != nil && err.Error() != "no rows in result set" {
 			log.Error().Err(err).Msg("cant query torrent in announce")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -191,7 +190,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		// create torrent not found as we track all announced
 		if torrent.ID.IsNil() && err.Error() == "no rows in result set" {
 			torrent, err = server.store.AddTorrent(ctx, []byte(req.InfoHash))
-			promAdded.Inc()
+			promTracked.Inc()
 			if err != nil {
 				var pgError *pgconn.PgError
 				if errors.As(err, &pgError) {
@@ -218,7 +217,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 				failure := ErrorResponse{
 					FailureReason: "key is not valid",
 				}
-				reply(w, failure, http.StatusUnauthorized)
+				replyBencode(w, failure, http.StatusUnauthorized)
 				return
 			}
 		}
@@ -242,7 +241,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			}
 		}
 
-		peers, err := server.store.AllPeers(ctx, torrent.ID)
+		peers, err := server.store.Peers(ctx, torrent.ID)
 		if err != nil {
 			log.Error().Err(err).Msg("cant get peers in announce")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -273,7 +272,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			Peers:       buffer.String(),
 		}
 
-		promAnnouncesReply.Inc()
-		reply(w, announce, http.StatusOK)
+		promAnnounceReply.Inc()
+		replyBencode(w, announce, http.StatusOK)
 	}
 }
