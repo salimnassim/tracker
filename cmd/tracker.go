@@ -40,6 +40,7 @@ func main() {
 	r.Handle("/torrent/{id}", tracker.TorrentHandler(server))
 
 	r.Handle("/announce", tracker.AnnounceHandler(server))
+	r.Handle("/scrape", tracker.ScrapeHandler(server))
 
 	log.Info().Msgf("starting tracker (address: %s, announce url: %s)", config.Address, config.AnnounceURL)
 
@@ -53,7 +54,7 @@ func main() {
 
 	// remove stale peers every 5 minutes
 	server.RunTask(5*time.Minute, func(ts tracker.TorrentStorable) {
-		_, err := ts.CleanPeers(ctx, 24*time.Hour)
+		_, err := ts.CleanPeers(ctx, 1*time.Hour)
 		if err != nil {
 			log.Error().Err(err).Msg("cant clean peers in task")
 			return

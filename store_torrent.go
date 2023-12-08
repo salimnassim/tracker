@@ -13,13 +13,14 @@ type TorrentStorable interface {
 	// Add torrent to store.
 	AddTorrent(ctx context.Context, infoHash []byte) (Torrent, error)
 	// Get torrent from store.
-	GetTorrent(ctx context.Context, infoHash []byte) (Torrent, error)
+	Torrent(ctx context.Context, infoHash []byte) (Torrent, error)
 	// Increments torrentID completed property by one.
 	IncrementTorrent(ctx context.Context, torrentID uuid.UUID) error
 	// Get all torrents in store.
-	AllTorrents(ctx context.Context) ([]Torrent, error)
+	Torrents(ctx context.Context) ([]Torrent, error)
+	Scrape(ctx context.Context, hashes [][]byte) ([]Torrent, error)
 	// Get all peers for torrentID.
-	AllPeers(ctx context.Context, torrentID uuid.UUID) ([]Peer, error)
+	Peers(ctx context.Context, torrentID uuid.UUID) ([]Peer, error)
 	// Try to update peer which already exist in the store.
 	// Operation success is denoted by bool.
 	UpdatePeerWithKey(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) (bool, error)
@@ -33,18 +34,17 @@ type TorrentStorable interface {
 	Ping(ctx context.Context) (bool, error)
 }
 
-type TorrentStore struct {
+type torrentStore struct {
 	pool *pgxpool.Pool
 }
 
-func NewTorrentStore(pool *pgxpool.Pool) *TorrentStore {
-	// todo: create pgxpool here
-	return &TorrentStore{
+func NewTorrentStore(pool *pgxpool.Pool) *torrentStore {
+	return &torrentStore{
 		pool: pool,
 	}
 }
 
-func (ts *TorrentStore) AddTorrent(ctx context.Context, infoHash []byte) (Torrent, error) {
+func (ts *torrentStore) AddTorrent(ctx context.Context, infoHash []byte) (Torrent, error) {
 	query := `insert into torrents (id, info_hash, completed, created_at)
 	values (gen_random_uuid(), $1, 0, now())
 	returning id, info_hash, completed, created_at, 0 as seeders, 0 as leechers`
@@ -63,7 +63,7 @@ func (ts *TorrentStore) AddTorrent(ctx context.Context, infoHash []byte) (Torren
 	return torrent, nil
 }
 
-func (ts *TorrentStore) IncrementTorrent(ctx context.Context, torrentID uuid.UUID) error {
+func (ts *torrentStore) IncrementTorrent(ctx context.Context, torrentID uuid.UUID) error {
 	query := `update torrents
 	set completed = completed + 1
 	where id = $1`
@@ -76,7 +76,7 @@ func (ts *TorrentStore) IncrementTorrent(ctx context.Context, torrentID uuid.UUI
 	return nil
 }
 
-func (ts *TorrentStore) AllPeers(ctx context.Context, torrentID uuid.UUID) ([]Peer, error) {
+func (ts *torrentStore) Peers(ctx context.Context, torrentID uuid.UUID) ([]Peer, error) {
 	query := `select id, torrent_id, peer_id, ip, port, uploaded, downloaded, "left", event, key, updated_at
 	from peers
 	where torrent_id = $1
@@ -96,7 +96,7 @@ func (ts *TorrentStore) AllPeers(ctx context.Context, torrentID uuid.UUID) ([]Pe
 	return peers, nil
 }
 
-func (ts *TorrentStore) UpdatePeerWithKey(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) (bool, error) {
+func (ts *torrentStore) UpdatePeerWithKey(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) (bool, error) {
 	query := `update peers set
 	peer_id = $1, ip = $2, port = $3, uploaded = $4, downloaded = $5, "left" = $6, event = $7, updated_at = now()
 	where torrent_id = $8 and key = $9`
@@ -111,7 +111,7 @@ func (ts *TorrentStore) UpdatePeerWithKey(ctx context.Context, torrentID uuid.UU
 	return (tag.RowsAffected() > 0), nil
 }
 
-func (ts *TorrentStore) UpsertPeer(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) error {
+func (ts *torrentStore) UpsertPeer(ctx context.Context, torrentID uuid.UUID, req AnnounceRequest) error {
 	query := `insert into peers (id, torrent_id, peer_id, ip, port, uploaded, downloaded, "left", event, key, updated_at)
 	values (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, now())
 	on conflict (torrent_id, peer_id) do update set
@@ -127,7 +127,7 @@ func (ts *TorrentStore) UpsertPeer(ctx context.Context, torrentID uuid.UUID, req
 	return nil
 }
 
-func (ts *TorrentStore) GetTorrent(ctx context.Context, infoHash []byte) (Torrent, error) {
+func (ts *torrentStore) Torrent(ctx context.Context, infoHash []byte) (Torrent, error) {
 	query := `select t.id, t.info_hash, t.completed, t.created_at, 
 		(select count(*) from peers where peers.torrent_id = t.id and peers.left = 0) as seeders,
 		(select count(*) from peers where peers.torrent_id = t.id and peers.left != 0) as leechers
@@ -150,7 +150,7 @@ func (ts *TorrentStore) GetTorrent(ctx context.Context, infoHash []byte) (Torren
 	return torrent, nil
 }
 
-func (ts *TorrentStore) AllTorrents(ctx context.Context) ([]Torrent, error) {
+func (ts *torrentStore) Torrents(ctx context.Context) ([]Torrent, error) {
 	query := `select t.id, t.info_hash, t.completed, t.created_at,
 		(select count(*) from peers where peers.torrent_id = t.id and peers.left = 0) as seeders,
 		(select count(*) from peers where peers.torrent_id = t.id and peers.left != 0) as leechers
@@ -171,8 +171,28 @@ func (ts *TorrentStore) AllTorrents(ctx context.Context) ([]Torrent, error) {
 	return torrents, nil
 }
 
+func (ts *torrentStore) Scrape(ctx context.Context, hashes [][]byte) ([]Torrent, error) {
+	query := `select t.id, t.info_hash, t.completed, t.created_at,
+		(select count(*) from peers where peers.torrent_id = t.id and peers.left = 0) as seeders,
+		(select count(*) from peers where peers.torrent_id = t.id and peers.left != 0) as leechers
+	from torrents t
+	where t.info_hash = any($1)`
+
+	rows, err := ts.pool.Query(ctx, query, hashes)
+	if err != nil {
+		return nil, err
+	}
+
+	torrents, err := pgx.CollectRows[Torrent](rows, pgx.RowToStructByName[Torrent])
+	if err != nil {
+		return []Torrent{}, err
+	}
+
+	return torrents, nil
+}
+
 // Removers stale peers that have not updated in a x duration.
-func (ts *TorrentStore) CleanPeers(ctx context.Context, interval time.Duration) (int, error) {
+func (ts *torrentStore) CleanPeers(ctx context.Context, interval time.Duration) (int, error) {
 	query := `delete from peers	where updated_at < now() - $1::interval`
 
 	tag, err := ts.pool.Exec(ctx, query, interval)
@@ -183,7 +203,7 @@ func (ts *TorrentStore) CleanPeers(ctx context.Context, interval time.Duration) 
 	return int(tag.RowsAffected()), nil
 }
 
-func (ts *TorrentStore) Log(ctx context.Context, req AnnounceRequest) error {
+func (ts *torrentStore) Log(ctx context.Context, req AnnounceRequest) error {
 	query := `insert into announce_log (id, info_hash, peer_id, event, ip, port, key, uploaded, downloaded, "left", created_at)
 	values (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, now())`
 
@@ -194,7 +214,7 @@ func (ts *TorrentStore) Log(ctx context.Context, req AnnounceRequest) error {
 	return nil
 }
 
-func (ts *TorrentStore) Ping(ctx context.Context) (bool, error) {
+func (ts *torrentStore) Ping(ctx context.Context) (bool, error) {
 	err := ts.pool.Ping(ctx)
 	if err != nil {
 		return false, err

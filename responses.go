@@ -11,3 +11,13 @@ type AnnounceResponse struct {
 	Incomplete  int    `bencode:"incomplete"`
 	Peers       string `bencode:"peers"`
 }
+
+type ScrapeResponse struct {
+	Files map[string]ScrapeTorrent `bencode:"files"`
+}
+
+type ScrapeTorrent struct {
+	Complete   int `bencode:"complete"`
+	Incomplete int `bencode:"incomplete"`
+	Downloaded int `bencode:"downloaded"`
+}
