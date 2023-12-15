@@ -1,22 +1,29 @@
 # tracker
-BitTorrent tracker which relies on PostgreSQL for persistence. All announced torrents will be tracked automatically.
-The HTTP server provides a torrent index list with magnet support on the `/` route by default.
 
+This is a BitTorrent tracker that relies on PostgreSQL for persistence. All announced torrents will be tracked automatically. The HTTP server provides a torrent index list with magnet metadata support on the `/` route by default.
 
+## Features
+- [x] **HTTP Tracker:** Allows tracking of torrents over HTTP.
+- [x] **Compact Peer Format:** Utilizes a compact format for representing peers in the tracker.
+- [x] **Scrape:** Supports scraping information from the tracker.
+- [ ] **UDP Tracker**
+- [ ] **IPv6**
 
-#### Features
+## Environment Variables
+- `ADDRESS` (default: `0.0.0.0:9999`): Specifies the address and port for the tracker.
+- `ANNOUNCE_URL` (default: `http://localhost:9999/announce`): Used for magnet links in the index view.
+- `DSN` (default: `postgres://tracker:tracker@localhost:5432/tracker`): PostgreSQL connection string.
+- `TEMPLATE_PATH` (default: `../templates/`): Path to the template files.
+- `STATIC_PATH` (default: `../static/`): Path to static files.
 
-- [x] HTTP Tracker
-- [x] Compact peer format
-- [x] Scrape
-- [ ] UDP Tracker
-- [ ] IPv6
+## Installation
 
-#### Environment variables
+### Local
 
-- `ADDRESS` (0.0.0.0:9999)
-- `ANNOUNCE_URL` (http://localhost:9999/announce)
-  - Used for magnet links in the index vew
-- `DSN` (postgres://tracker:tracker@localhost:5432/tracker)
-- `TEMPLATE_PATH` (../templates/)
-- `STATIC_PATH` (../static/)
+1. Run `go mod download && go build -v -o ./dist/tracker ./cmd`.
+2. The application can be found under the `dist` directory.
+
+### Docker
+
+1. Configure the environment variables under the `backend` block in `docker-compose.yml`.
+2. Run `docker compose up`.
