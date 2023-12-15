@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -33,6 +34,10 @@ func main() {
 
 	// create router
 	r := mux.NewRouter()
+
+	fs := http.FileServer(http.Dir(path.Join(os.Getenv("STATIC_PATH"))))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
+
 	r.Handle("/metrics", promhttp.Handler())
 	r.Handle("/health", tracker.HealthHandler())
 

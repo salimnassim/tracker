@@ -63,6 +63,7 @@ services:
       ANNOUNCE_URL: http://localhost:9999/announce
       DSN: "postgresql://tracker:tracker@postgres:5432/tracker?sslmode=disable"
       TEMPLATE_PATH: "/app/templates/"
+      STATIC_PATH: "/app/static/"
     ports:
       - "9999:9999"
     healthcheck:
