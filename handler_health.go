@@ -3,21 +3,12 @@ package tracker
 import (
 	"net/http"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-var (
-	// The total number of health checks.
-	promChecks = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_health",
-		Help: "The total number of health checks",
-	})
+	"github.com/salimnassim/tracker/metric"
 )
 
 func HealthHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		promChecks.Inc()
+		metric.TrackerHealth.Inc()
 		w.WriteHeader(http.StatusOK)
 	}
 }

@@ -12,27 +12,8 @@ import (
 	"github.com/cristalhq/bencode"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
-)
-
-var (
-	// The total number of promAnnounce.
-	promAnnounce = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_announce",
-		Help: "The total number of announces",
-	})
-	// The total number of announce replies.
-	promAnnounceReply = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_announce_reply",
-		Help: "The total number of announce replies",
-	})
-	// The total number of tracked torrents over time.
-	promTracked = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_tracked",
-		Help: "The total number of tracked torrents over time",
-	})
+	"github.com/salimnassim/tracker/metric"
 )
 
 // Writes statusCode header and bencoded v.
@@ -176,10 +157,10 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		promAnnounce.Inc()
+		metric.TrackerAnnounce.Inc()
 
-		var torrent Torrent
 		// get torrent
+		var torrent Torrent
 		torrent, err = server.store.Torrent(ctx, []byte(req.InfoHash))
 		if err != nil && err.Error() != "no rows in result set" {
 			log.Error().Err(err).Msg("cant query torrent in announce")
@@ -188,9 +169,10 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		}
 
 		// create torrent not found as we track all announced
-		if torrent.ID.IsNil() && err.Error() == "no rows in result set" {
+		if torrent.ID.IsNil() || err.Error() == "no rows in result set" {
 			torrent, err = server.store.AddTorrent(ctx, []byte(req.InfoHash))
-			promTracked.Inc()
+
+			metric.TrackerTorrents.Inc()
 			if err != nil {
 				var pgError *pgconn.PgError
 				if errors.As(err, &pgError) {
@@ -207,7 +189,6 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		}
 
 		// try to update existing record by using query string key
-
 		// ok is true if peer was updated with a key
 		var ok bool
 		if query.Get("key") != "" {
@@ -272,7 +253,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 			Peers:       buffer.String(),
 		}
 
-		promAnnounceReply.Inc()
+		metric.TrackerAnnounceReply.Inc()
 		replyBencode(w, announce, http.StatusOK)
 	}
 }
