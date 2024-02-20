@@ -36,6 +36,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
+			log.Error().Err(err).Str("source", "http_announce").Msg("cant split host port")
 			failure := ErrorResponse{
 				FailureReason: "internal server error",
 			}
@@ -103,7 +104,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		// has to be exactly 20 bytes
 		infoHash := []byte(query.Get("info_hash"))
 		if len(infoHash) != 20 {
-			log.Info().Msgf("client info hash is not 20 bytes: %s", infoHash)
+			log.Info().Str("source", "http_announce").Msgf("client info hash is not 20 bytes: %s", infoHash)
 			failure := ErrorResponse{
 				FailureReason: "info_hash is not valid",
 			}
@@ -114,7 +115,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		// has to be exactly 20 bytes
 		peerID := []byte(query.Get("peer_id"))
 		if len(peerID) != 20 {
-			log.Info().Msgf("client peer id is not 20 bytes: %s", peerID)
+			log.Info().Str("source", "http_announce").Msgf("client peer id is not 20 bytes: %s", peerID)
 			failure := ErrorResponse{
 				FailureReason: "peer_id is not valid",
 			}
@@ -151,7 +152,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		err = server.store.Log(ctx, req)
 		if err != nil {
-			log.Error().Err(err).Msg("cant log in announce")
+			log.Error().Err(err).Str("source", "http_announce").Msg("cant insert announce log")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -163,7 +164,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		// get torrent
 		torrent, err = server.store.Torrent(ctx, []byte(req.InfoHash))
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			log.Error().Err(err).Msg("cant query torrent in announce")
+			log.Error().Err(err).Str("source", "http_announce").Msg("cant get torrent")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -177,12 +178,12 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 				var pgError *pgconn.PgError
 				if errors.As(err, &pgError) {
 					if pgError.Code == "23505" {
-						log.Error().Err(err).Msg("duplicate torrent info_hash on insert in announce")
+						log.Error().Err(err).Str("source", "http_announce").Msg("duplicate torrent on insert")
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
 				}
-				log.Error().Err(err).Msg("cant add torrent to store in announce")
+				log.Error().Err(err).Str("source", "http_announce").Msg("cant add torrent to store")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -194,7 +195,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		if query.Get("key") != "" {
 			ok, err = server.store.UpdatePeerWithKey(ctx, torrent.ID, req)
 			if err != nil {
-				log.Error().Err(err).Msg("cant update peer with key in announce")
+				log.Error().Err(err).Str("source", "http_announce").Msg("cant update peer with key")
 				failure := ErrorResponse{
 					FailureReason: "key is not valid",
 				}
@@ -206,7 +207,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		if !ok {
 			err = server.store.UpsertPeer(ctx, torrent.ID, req)
 			if err != nil {
-				log.Error().Err(err).Msg("cant upsert peer in announce")
+				log.Error().Err(err).Str("source", "http_announce").Msg("cant upsert peer")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -216,7 +217,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		if req.Event == "completed" {
 			err := server.store.IncrementTorrent(ctx, torrent.ID)
 			if err != nil {
-				log.Error().Err(err).Msg("cant increment torrent completed in announce")
+				log.Error().Err(err).Str("source", "http_announce").Msg("cant increment torrent completed")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -224,7 +225,7 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		peers, err := server.store.Peers(ctx, torrent.ID)
 		if err != nil {
-			log.Error().Err(err).Msg("cant get peers in announce")
+			log.Error().Err(err).Str("source", "http_announce").Msg("cant get peers")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -233,13 +234,13 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		for _, p := range peers {
 			pm, err := p.Marshal()
 			if err != nil {
-				log.Error().Err(err).Msg("cant marshal peer in announce")
+				log.Error().Err(err).Str("source", "http_announce").Msg("cant marshal peer")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 			_, err = buffer.Write(pm)
 			if err != nil {
-				log.Error().Err(err).Msg("cant write marshalled peer to buffer in announce")
+				log.Error().Err(err).Str("source", "http_announce").Msg("cant write marshalled peer to buffer")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
