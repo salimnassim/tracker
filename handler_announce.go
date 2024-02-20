@@ -11,6 +11,7 @@ import (
 
 	"github.com/cristalhq/bencode"
 	"github.com/go-playground/validator/v10"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog/log"
 	"github.com/salimnassim/tracker/metric"
@@ -157,17 +158,18 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 
 		metric.TrackerAnnounce.Inc()
 
-		// get torrent
 		var torrent Torrent
+
+		// get torrent
 		torrent, err = server.store.Torrent(ctx, []byte(req.InfoHash))
-		if err != nil && err.Error() != "no rows in result set" {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			log.Error().Err(err).Msg("cant query torrent in announce")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		// create torrent not found as we track all announced
-		if torrent.ID.IsNil() || err.Error() == "no rows in result set" {
+		if torrent.ID.IsNil() && errors.Is(err, pgx.ErrNoRows) {
 			torrent, err = server.store.AddTorrent(ctx, []byte(req.InfoHash))
 
 			metric.TrackerTorrents.Inc()
