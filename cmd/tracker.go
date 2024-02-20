@@ -44,12 +44,13 @@ func main() {
 	r.Handle("/", tracker.IndexHandler(server))
 	r.Handle("/torrent/{id}", tracker.TorrentHandler(server))
 
+	// Subrouter for plaintext.
 	sr := r.NewRoute().Subrouter()
 	r.Handle("/announce", tracker.AnnounceHandler(server))
 	r.Handle("/scrape", tracker.ScrapeHandler(server))
 	sr.Use(tracker.PlaintextMiddleware)
 
-	log.Info().Msgf("starting tracker (address: %s, announce url: %s)", config.Address, config.AnnounceURL)
+	log.Info().Str("source", "tracker_http").Msgf("starting tracker (address: %s, announce url: %s)", config.Address, config.AnnounceURL)
 
 	http := &http.Server{
 		ReadHeaderTimeout: 5 * time.Second,
@@ -70,6 +71,6 @@ func main() {
 
 	err := http.ListenAndServe()
 	if err != nil {
-		log.Fatal().Err(err).Msg("tracker exited")
+		log.Fatal().Err(err).Str("source", "tracker_http").Msg("tracker exited")
 	}
 }
