@@ -23,6 +23,8 @@ services:
       POSTGRES_USER: tracker
       POSTGRES_PASSWORD: tracker
       POSTGRES_DB: tracker
+      TZ: UTC
+      PGTZ: UTC
     ports:
       - "5432:5432"
     healthcheck:
