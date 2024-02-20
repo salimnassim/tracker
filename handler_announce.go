@@ -33,8 +33,6 @@ func AnnounceHandler(server *Server) http.HandlerFunc {
 		ctx := r.Context()
 		query := r.URL.Query()
 
-		w.Header().Set("Content-Type", "text/plain; charset=ISO-8859-1")
-
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
 			failure := ErrorResponse{
