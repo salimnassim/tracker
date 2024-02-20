@@ -15,7 +15,7 @@ func ScrapeHandler(server *Server) http.HandlerFunc {
 
 		infoHash, ok := r.URL.Query()["info_hash"]
 		if !ok {
-			log.Error().Msg("scrape info_hash is not present")
+			log.Error().Str("source", "http_scrape").Msg("info_hash is not present")
 			failure := ErrorResponse{
 				FailureReason: "info_hash is not present",
 			}
@@ -30,7 +30,7 @@ func ScrapeHandler(server *Server) http.HandlerFunc {
 
 		torrents, err := server.store.Scrape(ctx, hashes)
 		if err != nil {
-			log.Error().Err(err).Msg("unable to fetch torrents in scrape")
+			log.Error().Err(err).Str("source", "http_scrape").Msg("unable to fetch torrents")
 			failure := ErrorResponse{
 				FailureReason: "internal server error",
 			}
