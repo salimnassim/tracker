@@ -33,5 +33,4 @@ func TestPeerClient(t *testing.T) {
 	if got != want {
 		t.Errorf("want: %v, got %v", want, got)
 	}
-
 }
