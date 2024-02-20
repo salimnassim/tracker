@@ -3,30 +3,15 @@ package tracker
 import (
 	"net/http"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
-)
-
-var (
-	// The total number of promAdded torrents.
-	promScrape = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_scrape",
-		Help: "The total number of scrapes",
-	})
-	promScrapeReply = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tracker_scrape_reply",
-		Help: "The total number of scrape replies",
-	})
+	"github.com/salimnassim/tracker/metric"
 )
 
 func ScrapeHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		w.Header().Set("Content-Type", "text/plain; charset=ISO-8859-1")
-
-		promScrape.Inc()
+		metric.TrackerScrape.Inc()
 
 		infoHash, ok := r.URL.Query()["info_hash"]
 		if !ok {
@@ -64,7 +49,7 @@ func ScrapeHandler(server *Server) http.HandlerFunc {
 			}
 		}
 
-		promScrapeReply.Inc()
+		metric.TrackerScrapeReply.Inc()
 
 		replyBencode(w, scrape, http.StatusOK)
 	}

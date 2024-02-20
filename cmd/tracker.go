@@ -44,8 +44,10 @@ func main() {
 	r.Handle("/", tracker.IndexHandler(server))
 	r.Handle("/torrent/{id}", tracker.TorrentHandler(server))
 
+	sr := r.NewRoute().Subrouter()
 	r.Handle("/announce", tracker.AnnounceHandler(server))
 	r.Handle("/scrape", tracker.ScrapeHandler(server))
+	sr.Use(tracker.PlaintextMiddleware)
 
 	log.Info().Msgf("starting tracker (address: %s, announce url: %s)", config.Address, config.AnnounceURL)
 

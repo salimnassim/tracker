@@ -20,6 +20,6 @@
 # Go workspace file
 go.work
 
-__debug_bin
+cmd/__debug*
 .vscode/
 dist/
