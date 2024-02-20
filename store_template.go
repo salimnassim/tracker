@@ -15,7 +15,9 @@ const (
 )
 
 type Templater interface {
+	// Add template to cache.
 	Add(ID TemplateID, template *template.Template)
+	// Execute template from cache using data.
 	Execute(ID TemplateID, wr io.Writer, data any) error
 }
 
@@ -24,6 +26,7 @@ type templateStore struct {
 	templates map[TemplateID]*template.Template
 }
 
+// Create new template store.
 func NewTemplateStore() *templateStore {
 	return &templateStore{
 		mu:        &sync.RWMutex{},
