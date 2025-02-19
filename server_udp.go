@@ -52,6 +52,8 @@ func (s *UDPServer) Serve(errs chan error) {
 			errs <- err
 		}
 
+		log.Debug().Msgf("%v", buffer)
+
 		// check for magic constant, create connectionID and store it for the future
 		if binary.BigEndian.Uint64(buffer[0:8]) == 0x41727101980 {
 			action := binary.BigEndian.Uint32(buffer[8:12])
