@@ -5,6 +5,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math/rand/v2"
+	"net"
+
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -29,13 +33,13 @@ func (r *connectRequest) unpack(bytes []byte) error {
 	return nil
 }
 
-type connectReply struct {
+type connectResponse struct {
 	action        uint32
 	transactionID uint32
 	connectionID  uint64
 }
 
-func (r *connectReply) pack() []byte {
+func (r *connectResponse) pack() []byte {
 	buffer := bytes.Buffer{}
 	writer := bufio.NewWriter(&buffer)
 
@@ -45,4 +49,37 @@ func (r *connectReply) pack() []byte {
 	writer.Flush()
 
 	return buffer.Bytes()
+}
+
+func handleConnection(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any) {
+	req := &connectRequest{}
+	err := req.unpack(request)
+
+	if err != nil {
+		log.Error().Err(err)
+		return
+	}
+
+	if req.protocolID != 0x41727101980 {
+		log.Error().Msg("protocol id is not 0x41727101980")
+		return
+	}
+
+	connectionID := rand.Uint64()
+
+	state <- connectionID
+
+	res := &connectResponse{
+		action:        0,
+		transactionID: req.transactionID,
+		connectionID:  connectionID,
+	}
+	pack := res.pack()
+
+	_, err = conn.WriteToUDP(pack, addr)
+	if err != nil {
+		log.Error().Err(err)
+		return
+	}
+
 }

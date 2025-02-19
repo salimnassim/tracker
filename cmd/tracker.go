@@ -1,34 +1,31 @@
 package main
 
 import (
-	"os"
-	"os/signal"
-
 	"github.com/rs/zerolog/log"
 	"github.com/salimnassim/tracker"
 )
 
 func main() {
-	errs := make(chan error, 1)
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt)
+	state := make(chan any)
+	errors := make(chan error)
+	stop := make(chan bool)
 
-	// server := tracker.NewServer()
+	server := tracker.NewServer(errors, stop, state)
+	udp := tracker.NewUDPServer("0.0.0.0", 8888)
 
-	udp := tracker.NewUDPServer(
-		"0.0.0.0", 8888, tracker.NewStore[uint64, uint32](), tracker.NewStore[[20]byte, *tracker.Torrent](),
-	)
-
-	go udp.Serve(errs)
+	go server.Start(udp)
 
 	for {
 		select {
 		case <-stop:
 			return
-		case err := <-errs:
+		case err := <-errors:
 			if err != nil {
 				log.Error().Err(err)
 			}
+		case event := <-state:
+			log.Debug().Msgf("%v", event)
 		}
+
 	}
 }

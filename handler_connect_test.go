@@ -35,7 +35,7 @@ func TestConnectResponse(t *testing.T) {
 			0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
 		}
 
-		res := &connectReply{
+		res := &connectResponse{
 			action:        0,
 			transactionID: 0x12345678,
 			connectionID:  0x0123456789ABCDEF,
