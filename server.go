@@ -6,6 +6,20 @@ type EventConnection struct {
 	ConnectionID uint64
 }
 
+type EventAnnounce struct {
+	PeerId     [20]byte
+	Downloaded uint64
+	Left       uint64
+	Uploaded   uint64
+	Event      uint32
+	IP         uint32
+	Port       uint16
+}
+
+type EventRegisterTorrent struct {
+	InfoHash [20]byte
+}
+
 type Server struct {
 	ctx      context.Context
 	conns    Storer[uint64, uint64]

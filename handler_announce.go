@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"net"
+
+	"github.com/rs/zerolog/log"
 )
 
 type announceRequest struct {
@@ -23,7 +26,7 @@ type announceRequest struct {
 }
 
 func (r *announceRequest) unpack(bytes []byte) error {
-	if len(bytes) != 98 {
+	if len(bytes) < 98 || len(bytes) > 120 {
 		return errorSizeMismatch
 	}
 
@@ -66,4 +69,71 @@ func (r *announceResponse) pack() []byte {
 	writer.Flush()
 
 	return buffer.Bytes()
+}
+
+func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[[20]byte, *Torrent]) {
+	req := &announceRequest{}
+	err := req.unpack(request)
+
+	if err != nil {
+		log.Error().Err(err).Msg("cant unpack announce request")
+		return
+	}
+
+	ip := addr.IP.To4()
+	if ip == nil {
+		log.Error().Msg("invalid ipv4 address")
+		return
+	}
+
+	torrent, ok := torrents.Get(req.infoHash)
+	if !ok {
+		state <- EventRegisterTorrent{
+			InfoHash: req.infoHash,
+		}
+
+		state <- EventAnnounce{
+			PeerId:     req.peerID,
+			Downloaded: req.downloaded,
+			Left:       req.left,
+			Uploaded:   req.uploaded,
+			Event:      req.event,
+			IP:         binary.BigEndian.Uint32(ip),
+			Port:       req.port,
+		}
+
+		res := &announceResponse{
+			action:        1,
+			transactionID: req.transactionID,
+			interval:      5,
+			leechers:      0,
+			seeders:       0,
+			peers:         [][8]byte{},
+		}
+		pack := res.pack()
+
+		_, err := conn.WriteToUDP(pack, addr)
+		if err != nil {
+			log.Error().Err(err).Msg("cant write udp")
+			return
+		}
+		return
+	}
+
+	peers := torrent.zip()
+	res := &announceResponse{
+		action:        1,
+		transactionID: req.transactionID,
+		interval:      5,
+		leechers:      1,
+		seeders:       2,
+		peers:         peers,
+	}
+	pack := res.pack()
+
+	_, err = conn.WriteToUDP(pack, addr)
+	if err != nil {
+		log.Error().Err(err).Msg("cant write udp")
+		return
+	}
 }

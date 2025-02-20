@@ -42,16 +42,15 @@ func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
 
 		if err != nil {
-			log.Error().Err(err)
 			state <- err
 			continue
 		}
 
-		go handle(conn, remoteAddr, buffer[:n], state)
+		go handle(conn, remoteAddr, buffer[:n], state, torrents)
 	}
 }
 
-func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any) {
+func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[[20]byte, *Torrent]) {
 	if len(request) < 16 {
 		log.Error().Msgf("packet size less than 16")
 		return
@@ -70,6 +69,8 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 	switch action {
 	case 0:
 		handleHandshake(conn, addr, request, state)
+	case 1:
+		handleAnnounce(conn, addr, request, state, torrents)
 
 	default:
 		log.Error().
