@@ -15,13 +15,13 @@ var (
 	errorSizeMismatch = errors.New("bad message size")
 )
 
-type connectRequest struct {
+type handshakeRequest struct {
 	protocolID    uint64 // 0x41727101980
 	action        uint32
 	transactionID uint32
 }
 
-func (r *connectRequest) unpack(bytes []byte) error {
+func (r *handshakeRequest) unpack(bytes []byte) error {
 	if len(bytes) != 16 {
 		return errorSizeMismatch
 	}
@@ -33,13 +33,13 @@ func (r *connectRequest) unpack(bytes []byte) error {
 	return nil
 }
 
-type connectResponse struct {
+type handshakeResponse struct {
 	action        uint32
 	transactionID uint32
 	connectionID  uint64
 }
 
-func (r *connectResponse) pack() []byte {
+func (r *handshakeResponse) pack() []byte {
 	buffer := bytes.Buffer{}
 	writer := bufio.NewWriter(&buffer)
 
@@ -51,12 +51,12 @@ func (r *connectResponse) pack() []byte {
 	return buffer.Bytes()
 }
 
-func handleConnection(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any) {
-	req := &connectRequest{}
+func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any) {
+	req := &handshakeRequest{}
 	err := req.unpack(request)
 
 	if err != nil {
-		log.Error().Err(err)
+		log.Error().Err(err).Msg("cant unpack handshake request")
 		return
 	}
 
@@ -66,20 +66,22 @@ func handleConnection(conn *net.UDPConn, addr *net.UDPAddr, request []byte, stat
 	}
 
 	connectionID := rand.Uint64()
+	state <- EventConnection{
+		ConnectionID: connectionID,
+	}
 
-	state <- connectionID
-
-	res := &connectResponse{
+	res := &handshakeResponse{
 		action:        0,
 		transactionID: req.transactionID,
 		connectionID:  connectionID,
 	}
 	pack := res.pack()
 
-	_, err = conn.WriteToUDP(pack, addr)
+	n, err := conn.WriteToUDP(pack, addr)
 	if err != nil {
-		log.Error().Err(err)
+		log.Error().Err(err).Msg("cant write to udp")
 		return
 	}
 
+	log.Debug().Msgf("wrote %d bytes", n)
 }

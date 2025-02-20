@@ -2,27 +2,27 @@ package tracker
 
 import "context"
 
+type EventConnection struct {
+	ConnectionID uint64
+}
+
 type Server struct {
 	ctx      context.Context
 	conns    Storer[uint64, uint64]
 	torrents Storer[[20]byte, *Torrent]
 
-	state  chan any
-	errors chan error
-	stop   chan bool
+	state chan any
 }
 
-func NewServer(errors chan error, stop chan bool, state chan any) *Server {
+func NewServer(state chan any, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent]) *Server {
 	return &Server{
 		ctx:      context.Background(),
-		conns:    NewStore[uint64, uint64](),
-		torrents: NewStore[[20]byte, *Torrent](),
+		conns:    conns,
+		torrents: torrents,
 		state:    state,
-		errors:   errors,
-		stop:     stop,
 	}
 }
 
 func (s *Server) Start(serverer Serverer) {
-	serverer.Serve(s.state, s.errors, s.stop, s.conns, s.torrents)
+	serverer.Serve(s.state, s.conns, s.torrents)
 }

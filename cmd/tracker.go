@@ -7,25 +7,23 @@ import (
 
 func main() {
 	state := make(chan any)
-	errors := make(chan error)
-	stop := make(chan bool)
 
-	server := tracker.NewServer(errors, stop, state)
-	udp := tracker.NewUDPServer("0.0.0.0", 8888)
+	conns := tracker.NewStore[uint64, uint64]()
+	torrents := tracker.NewStore[[20]byte, *tracker.Torrent]()
+
+	server := tracker.NewServer(state, conns, torrents)
+	udp := tracker.NewUDPServer("127.0.0.1", 8888)
 
 	go server.Start(udp)
+	log.Info().Msg("started")
 
-	for {
-		select {
-		case <-stop:
-			return
-		case err := <-errors:
-			if err != nil {
-				log.Error().Err(err)
-			}
-		case event := <-state:
-			log.Debug().Msgf("%v", event)
+	for event := range state {
+		switch e := event.(type) {
+		case tracker.EventConnection:
+			log.Info().Uint64("connection_id", e.ConnectionID).Msg("new connection")
+			conns.Set(e.ConnectionID, 0)
+		case error:
+			log.Error().Err(e)
 		}
-
 	}
 }

@@ -2,18 +2,14 @@ package tracker
 
 import (
 	"encoding/binary"
+	"fmt"
 	"net"
 
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	ActionAnnounce = 1
-	ActionScrape   = 2
-)
-
 type Serverer interface {
-	Serve(state chan any, errs chan error, stop chan bool, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent])
+	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent])
 }
 
 type UDPServer struct {
@@ -28,16 +24,16 @@ func NewUDPServer(address string, port int) *UDPServer {
 	}
 }
 
-func (s *UDPServer) Serve(state chan any, errs chan error, stop chan bool, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent]) {
-	addr, err := net.ResolveUDPAddr("udp", "0.0.0.0:8888")
+func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent]) {
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", s.address, s.port))
 	if err != nil {
-		errs <- err
+		state <- err
 		return
 	}
 
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		errs <- err
+		state <- err
 		return
 	}
 
@@ -45,11 +41,9 @@ func (s *UDPServer) Serve(state chan any, errs chan error, stop chan bool, conns
 	for {
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
 
-		log.Debug().Msg("message read")
-
 		if err != nil {
 			log.Error().Err(err)
-			errs <- err
+			state <- err
 			continue
 		}
 
@@ -67,15 +61,15 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 	action := binary.BigEndian.Uint32(request[8:12])
 	transactionID := binary.BigEndian.Uint32(request[12:16])
 
+	log.Debug().
+		Uint64("connection_id", connectionID).
+		Uint32("action", action).
+		Uint32("transaction_id", transactionID).
+		Msg("request")
+
 	switch action {
 	case 0:
-		handleConnection(conn, addr, request, state)
-
-	// case 1:
-	// 	handleAnnounce(conn, addr, connectionID, transactionID, request)
-
-	// case 2:
-	// 	handleAnnounce(conn, addr, connectionID, transactionID, request)
+		handleHandshake(conn, addr, request, state)
 
 	default:
 		log.Error().
