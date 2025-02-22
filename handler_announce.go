@@ -76,7 +76,11 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 	err := req.unpack(request)
 
 	if err != nil {
-		log.Error().Err(err).Int("size", len(request)).Msg("cant unpack announce request")
+		connectionID := binary.BigEndian.Uint64(request[0:8])
+		log.Error().Err(err).
+			Int64("connection_id", int64(connectionID)).
+			Int("size", len(request)).
+			Msg("cant unpack announce request")
 		return
 	}
 

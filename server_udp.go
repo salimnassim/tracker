@@ -83,7 +83,6 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 		}
 
 		handleScrape(conn, addr, request, state, torrents)
-
 	default:
 		log.Error().
 			Uint64("connection_id", connectionID).
