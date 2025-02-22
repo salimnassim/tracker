@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/hex"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -19,14 +21,23 @@ func main() {
 
 	server := tracker.NewServer(state, conns, torrents)
 
-	udp := tracker.NewUDPServer("", 8888)
-	http := tracker.NewHTTPServer("", 8080)
+	udp_port, err := strconv.Atoi(os.Getenv("BT_UDP_PORT"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("cant parse udp port")
+	}
+	http_port, err := strconv.Atoi(os.Getenv("BT_HTTP_PORT"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("cant parse http port")
+	}
+
+	udp := tracker.NewUDPServer("", udp_port)
+	http := tracker.NewHTTPServer("", http_port)
 
 	go server.StartUDP(udp)
-	log.Info().Msg("started udp")
+	log.Info().Int("port", udp_port).Msg("started udp server")
 
 	go server.StartHTTP(http)
-	log.Info().Msg("started http")
+	log.Info().Int("port", http_port).Msg("started http server")
 
 	for event := range state {
 		switch e := event.(type) {
