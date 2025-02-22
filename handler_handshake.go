@@ -56,7 +56,7 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 	err := req.unpack(request)
 
 	if err != nil {
-		log.Error().Err(err).Msg("cant unpack handshake request")
+		log.Error().Err(err).Int("size", len(request)).Msg("cant unpack handshake request")
 		return
 	}
 
@@ -77,11 +77,9 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 	}
 	pack := res.pack()
 
-	n, err := conn.WriteToUDP(pack, addr)
+	_, err = conn.WriteToUDP(pack, addr)
 	if err != nil {
 		log.Error().Err(err).Msg("cant write to udp")
 		return
 	}
-
-	log.Debug().Msgf("wrote %d bytes", n)
 }

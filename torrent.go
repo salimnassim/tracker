@@ -36,11 +36,16 @@ func NewTorrent() *Torrent {
 	}
 }
 
-func (r *Torrent) zip() [][8]byte {
-	var peers [][8]byte
+func (r *Torrent) state() (leechers uint32, seeders uint32, peers [][6]byte) {
 	for _, peer := range r.Peers {
-		peers = append(peers, [8]byte(peer.pack()))
+		if peer.Left > 0 {
+			leechers++
+		}
+		if peer.Left == 0 {
+			seeders++
+		}
+		peers = append(peers, [6]byte(peer.pack()))
 	}
 
-	return peers
+	return leechers, seeders, peers
 }

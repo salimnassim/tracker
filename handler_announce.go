@@ -53,7 +53,7 @@ type announceResponse struct {
 	interval      uint32
 	leechers      uint32
 	seeders       uint32
-	peers         [][8]byte
+	peers         [][6]byte
 }
 
 func (r *announceResponse) pack() []byte {
@@ -76,7 +76,7 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 	err := req.unpack(request)
 
 	if err != nil {
-		log.Error().Err(err).Msg("cant unpack announce request")
+		log.Error().Err(err).Int("size", len(request)).Msg("cant unpack announce request")
 		return
 	}
 
@@ -93,6 +93,7 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 		}
 
 		state <- EventAnnounce{
+			InfoHash:   req.infoHash,
 			PeerId:     req.peerID,
 			Downloaded: req.downloaded,
 			Left:       req.left,
@@ -108,7 +109,7 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 			interval:      5,
 			leechers:      0,
 			seeders:       0,
-			peers:         [][8]byte{},
+			peers:         [][6]byte{},
 		}
 		pack := res.pack()
 
@@ -120,13 +121,13 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 		return
 	}
 
-	peers := torrent.zip()
+	leechers, seeders, peers := torrent.state()
 	res := &announceResponse{
 		action:        1,
 		transactionID: req.transactionID,
-		interval:      5,
-		leechers:      1,
-		seeders:       2,
+		interval:      30,
+		leechers:      leechers,
+		seeders:       seeders,
 		peers:         peers,
 	}
 	pack := res.pack()

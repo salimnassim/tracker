@@ -46,11 +46,11 @@ func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents
 			continue
 		}
 
-		go handle(conn, remoteAddr, buffer[:n], state, torrents)
+		go handle(conn, remoteAddr, buffer[:n], state, conns, torrents)
 	}
 }
 
-func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[[20]byte, *Torrent]) {
+func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent]) {
 	if len(request) < 16 {
 		log.Error().Msgf("packet size less than 16")
 		return
@@ -70,7 +70,19 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 	case 0:
 		handleHandshake(conn, addr, request, state)
 	case 1:
+		if _, ok := conns.Get(connectionID); !ok {
+			log.Error().Uint64("connection_id", connectionID).Msg("connection id not found for announce")
+			return
+		}
+
 		handleAnnounce(conn, addr, request, state, torrents)
+	case 2:
+		if _, ok := conns.Get(connectionID); !ok {
+			log.Error().Uint64("connection_id", connectionID).Msg("connection id not found for scrape")
+			return
+		}
+
+		handleScrape(conn, addr, request, state, torrents)
 
 	default:
 		log.Error().
