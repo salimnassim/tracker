@@ -125,6 +125,17 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 		return
 	}
 
+	state <- EventAnnounce{
+		InfoHash:   req.infoHash,
+		PeerId:     req.peerID,
+		Downloaded: req.downloaded,
+		Left:       req.left,
+		Uploaded:   req.uploaded,
+		Event:      req.event,
+		IP:         binary.BigEndian.Uint32(ip),
+		Port:       req.port,
+	}
+
 	leechers, seeders, peers := torrent.state()
 	res := &announceResponse{
 		action:        1,
