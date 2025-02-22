@@ -73,7 +73,7 @@ func main() {
 				Msg("peer updated")
 
 		case tracker.EventRegisterTorrent:
-			torrent := tracker.NewTorrent()
+			torrent := tracker.NewTorrent(e.InfoHash)
 			torrents.Set(e.InfoHash, torrent)
 
 			log.Info().

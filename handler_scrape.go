@@ -24,8 +24,8 @@ func (r *scrapeRequest) unpack(bytes []byte) error {
 	r.transactionID = binary.BigEndian.Uint32(bytes[12:16])
 
 	hashes := [][20]byte{}
-	for i := 16; i < len(bytes); i = i + 8 {
-		infoHash := [20]byte(bytes[i : i+8])
+	for i := 16; i < len(bytes); i = i + 20 {
+		infoHash := [20]byte(bytes[i : i+20])
 		hashes = append(hashes, infoHash)
 	}
 

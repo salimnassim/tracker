@@ -5,6 +5,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
 )
 
 type Peer struct {
@@ -40,12 +43,27 @@ func (h PeerID) MarshalText() (text []byte, err error) {
 }
 
 type Torrent struct {
-	Peers map[PeerID]*Peer `json:"peers"`
+	InfoHash InfoHash         `json:"-"`
+	Peers    map[PeerID]*Peer `json:"peers"`
 }
 
-func NewTorrent() *Torrent {
+func (t *Torrent) MarshalJSON() ([]byte, error) {
+	type alias Torrent
+	type dto struct {
+		Magnet string `json:"magnet"`
+		*alias
+	}
+
+	return json.Marshal(&dto{
+		Magnet: fmt.Sprintf("magnet:?xt=urn:btih:%X&tr=%s", t.InfoHash, os.Getenv("udp_uri")),
+		alias:  (*alias)(t),
+	})
+}
+
+func NewTorrent(infoHash InfoHash) *Torrent {
 	return &Torrent{
-		Peers: map[PeerID]*Peer{},
+		InfoHash: infoHash,
+		Peers:    map[PeerID]*Peer{},
 	}
 }
 
