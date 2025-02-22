@@ -74,9 +74,9 @@ func (t *Torrent) MarshalJSON() ([]byte, error) {
 		*alias
 	}
 
-	udp_tracker_url := url.QueryEscape(os.Getenv("BT_UDP_TRACKER_URL"))
+	udp_tracker_url := url.QueryEscape(os.Getenv("BT_UDP_URL"))
 	return json.Marshal(&dto{
-		Magnet: fmt.Sprintf("magnet:?xt=urn:btih:%X&tr=%s", t.InfoHash, udp_tracker_url),
+		Magnet: fmt.Sprintf("magnet:?xt=urn:btih:%x&tr=%s", t.InfoHash, udp_tracker_url),
 		alias:  (*alias)(t),
 	})
 }
