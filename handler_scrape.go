@@ -34,7 +34,7 @@ func (r *scrapeRequest) unpack(bytes []byte) error {
 	return nil
 }
 
-func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[[20]byte, *Torrent]) {
+func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[InfoHash, *Torrent]) {
 	req := &scrapeRequest{}
 	err := req.unpack(request)
 

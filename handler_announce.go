@@ -71,7 +71,7 @@ func (r *announceResponse) pack() []byte {
 	return buffer.Bytes()
 }
 
-func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[[20]byte, *Torrent]) {
+func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[InfoHash, *Torrent]) {
 	req := &announceRequest{}
 	err := req.unpack(request)
 

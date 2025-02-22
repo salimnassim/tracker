@@ -8,8 +8,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Serverer interface {
-	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent])
+type UDPServerer interface {
+	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent])
 }
 
 type UDPServer struct {
@@ -24,7 +24,7 @@ func NewUDPServer(address string, port int) *UDPServer {
 	}
 }
 
-func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent]) {
+func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", s.address, s.port))
 	if err != nil {
 		state <- err
@@ -50,7 +50,7 @@ func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents
 	}
 }
 
-func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent]) {
+func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) {
 	if len(request) < 16 {
 		log.Error().Msgf("packet size less than 16")
 		return

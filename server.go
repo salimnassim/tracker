@@ -24,12 +24,12 @@ type EventRegisterTorrent struct {
 type Server struct {
 	ctx      context.Context
 	conns    Storer[uint64, uint64]
-	torrents Storer[[20]byte, *Torrent]
+	torrents Storer[InfoHash, *Torrent]
 
 	state chan any
 }
 
-func NewServer(state chan any, conns Storer[uint64, uint64], torrents Storer[[20]byte, *Torrent]) *Server {
+func NewServer(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) *Server {
 	return &Server{
 		ctx:      context.Background(),
 		conns:    conns,
@@ -38,6 +38,10 @@ func NewServer(state chan any, conns Storer[uint64, uint64], torrents Storer[[20
 	}
 }
 
-func (s *Server) Start(serverer Serverer) {
+func (s *Server) StartUDP(serverer UDPServerer) {
 	serverer.Serve(s.state, s.conns, s.torrents)
+}
+
+func (s *Server) StartHTTP(serverer HTTPServerer) {
+	serverer.Serve(s.conns, s.torrents)
 }

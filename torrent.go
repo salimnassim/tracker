@@ -4,15 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 )
 
 type Peer struct {
-	Downloaded uint64
-	Left       uint64
-	Uploaded   uint64
-	Event      uint32
-	IP         uint32
-	Port       uint16
+	Downloaded uint64 `json:"downloaded"`
+	Left       uint64 `json:"left"`
+	Uploaded   uint64 `json:"uploaded"`
+	Event      uint32 `json:"event"`
+	IP         uint32 `json:"ip"`
+	Port       uint16 `json:"port"`
 }
 
 func (r *Peer) pack() []byte {
@@ -26,13 +27,25 @@ func (r *Peer) pack() []byte {
 	return buffer.Bytes()
 }
 
+type InfoHash [20]byte
+
+func (h InfoHash) MarshalText() (text []byte, err error) {
+	return []byte(hex.EncodeToString(h[:])), nil
+}
+
+type PeerID [20]byte
+
+func (h PeerID) MarshalText() (text []byte, err error) {
+	return []byte(string(h[:])), nil
+}
+
 type Torrent struct {
-	Peers map[[20]byte]*Peer
+	Peers map[PeerID]*Peer `json:"peers"`
 }
 
 func NewTorrent() *Torrent {
 	return &Torrent{
-		Peers: map[[20]byte]*Peer{},
+		Peers: map[PeerID]*Peer{},
 	}
 }
 

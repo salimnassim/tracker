@@ -11,13 +11,18 @@ func main() {
 	state := make(chan any)
 
 	conns := tracker.NewStore[uint64, uint64]()
-	torrents := tracker.NewStore[[20]byte, *tracker.Torrent]()
+	torrents := tracker.NewStore[tracker.InfoHash, *tracker.Torrent]()
 
 	server := tracker.NewServer(state, conns, torrents)
-	udp := tracker.NewUDPServer("", 8888)
 
-	go server.Start(udp)
-	log.Info().Msg("started")
+	udp := tracker.NewUDPServer("", 8888)
+	http := tracker.NewHTTPServer("", 8080)
+
+	go server.StartUDP(udp)
+	log.Info().Msg("started udp")
+
+	go server.StartHTTP(http)
+	log.Info().Msg("started http")
 
 	for event := range state {
 		switch e := event.(type) {

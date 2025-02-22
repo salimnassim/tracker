@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"encoding/json"
 	"sync"
 )
 
@@ -8,6 +9,7 @@ type Storer[K comparable, V any] interface {
 	Set(key K, value V)
 	Get(key K) (V, bool)
 	Delete(key K)
+	json.Marshaler
 }
 
 type Store[K comparable, V any] struct {
@@ -38,4 +40,8 @@ func (s *Store[K, V]) Delete(key K) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	delete(s.store, key)
+}
+
+func (s *Store[K, V]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.store)
 }
