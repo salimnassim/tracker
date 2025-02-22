@@ -7,8 +7,8 @@ type EventConnection struct {
 }
 
 type EventAnnounce struct {
-	InfoHash   [20]byte
-	PeerId     [20]byte
+	InfoHash   InfoHash
+	PeerId     PeerID
 	Downloaded uint64
 	Left       uint64
 	Uploaded   uint64
