@@ -2,12 +2,16 @@ package main
 
 import (
 	"encoding/hex"
+	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/salimnassim/tracker"
 )
 
 func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+
 	state := make(chan any)
 
 	conns := tracker.NewStore[uint64, uint64]()
@@ -51,6 +55,7 @@ func main() {
 					Uploaded:   e.Uploaded,
 					IP:         e.IP,
 					Port:       e.Port,
+					Time:       time.Now().Unix(),
 				}
 
 				log.Info().
@@ -66,6 +71,7 @@ func main() {
 			peer.Uploaded = e.Uploaded
 			peer.IP = e.IP
 			peer.Port = e.Port
+			peer.Time = time.Now().Unix()
 
 			log.Info().
 				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
