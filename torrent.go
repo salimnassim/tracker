@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 )
 
@@ -17,18 +18,37 @@ type Peer struct {
 	Event      uint32 `json:"event"`
 	IP         uint32 `json:"ip"`
 	Port       uint16 `json:"port"`
+	Time       int64  `json:"time"`
 }
 
-func (r *Peer) pack() []byte {
+func (p *Peer) pack() []byte {
 	buffer := bytes.Buffer{}
 	writer := bufio.NewWriter(&buffer)
 
-	_ = binary.Write(writer, binary.BigEndian, r.IP)
-	_ = binary.Write(writer, binary.BigEndian, r.Port)
+	_ = binary.Write(writer, binary.BigEndian, p.IP)
+	_ = binary.Write(writer, binary.BigEndian, p.Port)
 	writer.Flush()
 
 	return buffer.Bytes()
 }
+
+// func (p *Peer) MarshalJSON() ([]byte, error) {
+// 	type alias Peer
+// 	type dto struct {
+// 		*alias
+// 		IP string `json:"ip"`
+// 	}
+
+// 	return json.Marshal(&dto{
+// 		alias: (*alias)(p),
+// 		IP: fmt.Sprintf("%d.%d.%d.%d",
+// 			byte(p.IP>>24),
+// 			byte(p.IP>>16),
+// 			byte(p.IP>>8),
+// 			byte(p.IP),
+// 		),
+// 	})
+// }
 
 type InfoHash [20]byte
 
@@ -54,8 +74,9 @@ func (t *Torrent) MarshalJSON() ([]byte, error) {
 		*alias
 	}
 
+	udp_tracker_url := url.QueryEscape(os.Getenv("BT_UDP_TRACKER_URL"))
 	return json.Marshal(&dto{
-		Magnet: fmt.Sprintf("magnet:?xt=urn:btih:%X&tr=%s", t.InfoHash, os.Getenv("udp_uri")),
+		Magnet: fmt.Sprintf("magnet:?xt=urn:btih:%X&tr=%s", t.InfoHash, udp_tracker_url),
 		alias:  (*alias)(t),
 	})
 }
