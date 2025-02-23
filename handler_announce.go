@@ -127,6 +127,8 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 		return
 	}
 
+	// todo: add complete
+
 	state <- EventAnnounce{
 		InfoHash:   req.infoHash,
 		PeerId:     req.peerID,
