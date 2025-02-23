@@ -35,12 +35,12 @@ type Server struct {
 	state chan any
 }
 
-func NewServer(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) *Server {
+func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) *Server {
 	return &Server{
 		ctx:      context.Background(),
 		conns:    conns,
 		torrents: torrents,
-		state:    state,
+		state:    make(chan any),
 	}
 }
 

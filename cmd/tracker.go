@@ -12,11 +12,9 @@ import (
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
-	state := make(chan any)
-
 	conns := tracker.NewStore[uint64, uint64]()
 	torrents := tracker.NewStore[tracker.InfoHash, *tracker.Torrent]()
-	server := tracker.NewServer(state, conns, torrents)
+	server := tracker.NewServer(conns, torrents)
 
 	udp_port, err := strconv.Atoi(os.Getenv("BT_UDP_PORT"))
 	if err != nil {
