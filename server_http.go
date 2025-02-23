@@ -2,6 +2,7 @@ package tracker
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -42,7 +43,7 @@ func (s *HTTPServer) Serve(state chan any, conns Storer[uint64, uint64], torrent
 	mux.HandleFunc("/", handler(torrents))
 
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         fmt.Sprintf("%s:%d", s.address, s.port),
 		Handler:      mux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
