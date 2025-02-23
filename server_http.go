@@ -9,27 +9,23 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type HTTPServerer interface {
-	Serve(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent])
-}
-
-type HTTPServer struct {
+type httpServer struct {
 	address string
 	port    int
 }
 
-func NewHTTPServer(address string, port int) *HTTPServer {
-	return &HTTPServer{
+func NewHTTPServer(address string, port int) *httpServer {
+	return &httpServer{
 		address: address,
 		port:    port,
 	}
 }
 
-func (s *HTTPServer) Address() string {
+func (s *httpServer) Address() string {
 	return s.address
 }
 
-func (s *HTTPServer) Port() int {
+func (s *httpServer) Port() int {
 	return s.port
 }
 
@@ -48,7 +44,7 @@ func handler(torrents Storer[InfoHash, *Torrent]) http.HandlerFunc {
 	}
 }
 
-func (s *HTTPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) {
+func (s *httpServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler(torrents))
 

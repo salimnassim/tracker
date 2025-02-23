@@ -94,11 +94,11 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 
 	torrent, ok := torrents.Get(req.infoHash)
 	if !ok {
-		state <- EventRegisterTorrent{
+		state <- eventRegisterTorrent{
 			InfoHash: req.infoHash,
 		}
 
-		state <- EventAnnounce{
+		state <- eventAnnounce{
 			InfoHash:   req.infoHash,
 			PeerId:     req.peerID,
 			Downloaded: req.downloaded,
@@ -127,7 +127,7 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 		return
 	}
 
-	state <- EventAnnounce{
+	state <- eventAnnounce{
 		InfoHash:   req.infoHash,
 		PeerId:     req.peerID,
 		Downloaded: req.downloaded,

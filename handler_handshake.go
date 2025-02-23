@@ -65,9 +65,12 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 	}
 
 	if req.protocolID != 0x41727101980 {
-		log.Error().Msg("protocol id is not 0x41727101980")
+		connectionID := binary.BigEndian.Uint64(request[0:8])
+		log.Error().Err(err).
+			Int64("connection_id", int64(connectionID)).
+			Msg("protocol id is not 0x41727101980")
 
-		res := &ErrorResponse{
+		res := &errorResponse{
 			action:        3,
 			transactionID: req.transactionID,
 			message:       "Invalid request",
@@ -83,7 +86,7 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 	}
 
 	connectionID := rand.Uint64()
-	state <- EventConnection{
+	state <- eventConnection{
 		ConnectionID: connectionID,
 	}
 

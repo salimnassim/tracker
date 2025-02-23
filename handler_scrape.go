@@ -80,6 +80,8 @@ func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state ch
 		leechers:      []uint32{},
 	}
 
+	// todo: cache
+
 	for idx, infoHash := range req.infoHashes {
 		if 8+idx*12 >= 768 {
 			break
@@ -87,7 +89,7 @@ func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state ch
 
 		torrent, ok := torrents.Get(infoHash)
 		if !ok {
-			res := &ErrorResponse{
+			res := &errorResponse{
 				action:        3,
 				transactionID: req.transactionID,
 				message:       "Torrent not found",

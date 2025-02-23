@@ -8,11 +8,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type EventConnection struct {
+type eventConnection struct {
 	ConnectionID uint64
 }
 
-type EventAnnounce struct {
+type eventAnnounce struct {
 	InfoHash   InfoHash
 	PeerId     PeerID
 	Downloaded uint64
@@ -24,11 +24,17 @@ type EventAnnounce struct {
 	Port       uint16
 }
 
-type EventRegisterTorrent struct {
+type eventRegisterTorrent struct {
 	InfoHash [20]byte
 }
 
-type Server struct {
+type Serverer interface {
+	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent])
+	Address() string
+	Port() int
+}
+
+type server struct {
 	ctx      context.Context
 	conns    Storer[uint64, uint64]
 	torrents Storer[InfoHash, *Torrent]
@@ -36,8 +42,8 @@ type Server struct {
 	state chan any
 }
 
-func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) *Server {
-	return &Server{
+func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) *server {
+	return &server{
 		ctx:      context.Background(),
 		conns:    conns,
 		torrents: torrents,
@@ -45,7 +51,7 @@ func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]
 	}
 }
 
-func (s *Server) Start(servers []Serverer) error {
+func (s *server) Start(servers []Serverer) error {
 	for _, server := range servers {
 		go server.Serve(s.state, s.conns, s.torrents)
 		log.Info().Str("address", server.Address()).Int("port", server.Port()).Msg("started server")
@@ -53,11 +59,11 @@ func (s *Server) Start(servers []Serverer) error {
 
 	for event := range s.state {
 		switch e := event.(type) {
-		case EventConnection:
+		case eventConnection:
 			s.conns.Set(e.ConnectionID, uint64(time.Now().Unix()))
 
 			log.Info().Uint64("connection_id", e.ConnectionID).Msg("connection created")
-		case EventAnnounce:
+		case eventAnnounce:
 			log.Info().Str("peer_id", hex.EncodeToString(e.PeerId[:])).Msg("announce")
 
 			torrent, ok := s.torrents.Get(e.InfoHash)
@@ -119,7 +125,7 @@ func (s *Server) Start(servers []Serverer) error {
 				Str("peer_id", hex.EncodeToString(e.PeerId[:])).
 				Msg("peer updated")
 
-		case EventRegisterTorrent:
+		case eventRegisterTorrent:
 			torrent := NewTorrent(e.InfoHash)
 			s.torrents.Set(e.InfoHash, torrent)
 

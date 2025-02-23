@@ -10,24 +10,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Serverer interface {
-	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent])
-	Address() string
-	Port() int
-}
-
 type UDPServer struct {
 	address string
 	port    int
 }
 
-type ErrorResponse struct {
+type errorResponse struct {
 	action        uint32
 	transactionID uint32
 	message       string
 }
 
-func (r *ErrorResponse) pack() []byte {
+func (r *errorResponse) pack() []byte {
 	buffer := bytes.Buffer{}
 	writer := bufio.NewWriter(&buffer)
 
@@ -102,7 +96,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 	case 1:
 		if _, ok := conns.Get(connectionID); !ok {
 			log.Error().Uint64("connection_id", connectionID).Msg("connection id not found for announce")
-			res := &ErrorResponse{
+			res := &errorResponse{
 				action:        3,
 				transactionID: transactionID,
 				message:       "Invalid connection ID",
@@ -121,7 +115,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 	case 2:
 		if _, ok := conns.Get(connectionID); !ok {
 			log.Error().Uint64("connection_id", connectionID).Msg("connection id not found for scrape")
-			res := &ErrorResponse{
+			res := &errorResponse{
 				action:        3,
 				transactionID: transactionID,
 				message:       "Invalid connection ID",
@@ -144,7 +138,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 			Uint32("transaction_id", transactionID).
 			Msgf("unknown action")
 
-		res := &ErrorResponse{
+		res := &errorResponse{
 			action:        3,
 			transactionID: transactionID,
 			message:       "Unknown action",
