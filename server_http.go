@@ -38,6 +38,8 @@ func handler(torrents Storer[InfoHash, *Torrent]) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
+		// todo: cache
+
 		err := json.NewEncoder(w).Encode(torrents)
 		if err != nil {
 			log.Error().Err(err).Msg("cant marshal torrents")
