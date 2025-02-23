@@ -1,6 +1,8 @@
 package tracker
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/binary"
 	"net"
 
@@ -34,6 +36,29 @@ func (r *scrapeRequest) unpack(bytes []byte) error {
 	return nil
 }
 
+type scrapeResponse struct {
+	action        uint32
+	transactionID uint32
+	seeders       []uint32
+	completed     []uint32
+	leechers      []uint32
+}
+
+func (r *scrapeResponse) pack() []byte {
+	buffer := bytes.Buffer{}
+	writer := bufio.NewWriter(&buffer)
+
+	_ = binary.Write(writer, binary.BigEndian, r.action)
+	_ = binary.Write(writer, binary.BigEndian, r.transactionID)
+
+	_ = binary.Write(writer, binary.BigEndian, r.seeders)
+	_ = binary.Write(writer, binary.BigEndian, r.completed)
+	_ = binary.Write(writer, binary.BigEndian, r.leechers)
+	writer.Flush()
+
+	return buffer.Bytes()
+}
+
 func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[InfoHash, *Torrent]) {
 	req := &scrapeRequest{}
 	err := req.unpack(request)
@@ -47,4 +72,46 @@ func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state ch
 		return
 	}
 
+	res := &scrapeResponse{
+		action:        2,
+		transactionID: req.transactionID,
+		seeders:       []uint32{},
+		completed:     []uint32{},
+		leechers:      []uint32{},
+	}
+
+	for idx, infoHash := range req.infoHashes {
+		if 8+idx*12 >= 768 {
+			break
+		}
+
+		torrent, ok := torrents.Get(infoHash)
+		if !ok {
+			res := &ErrorResponse{
+				action:        3,
+				transactionID: uint(req.transactionID),
+				message:       "Torrent not found",
+			}
+			pack := res.pack()
+
+			_, err = conn.WriteToUDP(pack, addr)
+			if err != nil {
+				log.Error().Err(err).Msg("cant write udp scrape error")
+				return
+			}
+			return
+		}
+
+		leechers, seeders, completed, _ := torrent.state()
+		res.seeders = append(res.seeders, seeders)
+		res.completed = append(res.completed, completed)
+		res.leechers = append(res.leechers, leechers)
+	}
+	pack := res.pack()
+
+	_, err = conn.WriteToUDP(pack, addr)
+	if err != nil {
+		log.Error().Err(err).Msg("cant write udp scrape response")
+		return
+	}
 }

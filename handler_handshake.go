@@ -66,6 +66,19 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 
 	if req.protocolID != 0x41727101980 {
 		log.Error().Msg("protocol id is not 0x41727101980")
+
+		res := &ErrorResponse{
+			action:        3,
+			transactionID: uint(req.transactionID),
+			message:       "Invalid request",
+		}
+		pack := res.pack()
+
+		_, err = conn.WriteToUDP(pack, addr)
+		if err != nil {
+			log.Error().Err(err).Msg("cant write udp handshake error")
+			return
+		}
 		return
 	}
 

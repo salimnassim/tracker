@@ -1,6 +1,8 @@
 package tracker
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -15,6 +17,24 @@ type UDPServerer interface {
 type UDPServer struct {
 	address string
 	port    int
+}
+
+type ErrorResponse struct {
+	action        uint32
+	transactionID uint
+	message       string
+}
+
+func (r *ErrorResponse) pack() []byte {
+	buffer := bytes.Buffer{}
+	writer := bufio.NewWriter(&buffer)
+
+	_ = binary.Write(writer, binary.BigEndian, r.action)
+	_ = binary.Write(writer, binary.BigEndian, r.transactionID)
+	_ = binary.Write(writer, binary.BigEndian, r.message)
+	writer.Flush()
+
+	return buffer.Bytes()
 }
 
 func NewUDPServer(address string, port int) *UDPServer {
@@ -89,5 +109,19 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 			Uint32("action", action).
 			Uint32("transaction_id", transactionID).
 			Msgf("unknown action")
+
+		res := &ErrorResponse{
+			action:        3,
+			transactionID: uint(transactionID),
+			message:       "Unknown action",
+		}
+		pack := res.pack()
+
+		_, err := conn.WriteToUDP(pack, addr)
+		if err != nil {
+			log.Error().Err(err).Msg("cant write udp handshake error")
+			return
+		}
+		return
 	}
 }

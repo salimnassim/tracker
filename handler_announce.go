@@ -136,7 +136,7 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 		Port:       req.port,
 	}
 
-	leechers, seeders, peers := torrent.state()
+	leechers, seeders, _, peers := torrent.state()
 	res := &announceResponse{
 		action:        1,
 		transactionID: req.transactionID,
