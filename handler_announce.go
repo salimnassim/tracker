@@ -44,6 +44,8 @@ func (r *announceRequest) unpack(bytes []byte) error {
 	r.numWant = binary.BigEndian.Uint32(bytes[92:96])
 	r.port = binary.BigEndian.Uint16(bytes[96:98])
 
+	// todo: extended bytes
+
 	return nil
 }
 
