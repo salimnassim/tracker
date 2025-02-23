@@ -53,7 +53,7 @@ func (s *Server) Start(servers []Serverer) error {
 	for event := range s.state {
 		switch e := event.(type) {
 		case EventConnection:
-			s.conns.Set(e.ConnectionID, 0)
+			s.conns.Set(e.ConnectionID, uint64(time.Now().Unix()))
 
 			log.Info().Uint64("connection_id", e.ConnectionID).Msg("connection created")
 		case EventAnnounce:
