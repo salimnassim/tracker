@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  tracker:
+    build: .
+    image: tracker:latest
+    restart: unless-stopped
+    environment:
+      - BT_HTTP_ADDRESS=127.0.0.1
+      - BT_HTTP_PORT=8080
+      - BT_UDP_ADDRESS=127.0.0.1
+      - BT_UDP_PORT=6881
+      - BT_UDP_URL=udp://127.0.0.1:6881
+    ports:
+      - "8080:8080/tcp"
+      - "6881:6881/udp"
