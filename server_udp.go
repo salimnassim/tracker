@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type UDPServerer interface {
+type Serverer interface {
 	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent])
 }
 
@@ -21,7 +21,7 @@ type UDPServer struct {
 
 type ErrorResponse struct {
 	action        uint32
-	transactionID uint
+	transactionID uint32
 	message       string
 }
 
@@ -31,7 +31,7 @@ func (r *ErrorResponse) pack() []byte {
 
 	_ = binary.Write(writer, binary.BigEndian, r.action)
 	_ = binary.Write(writer, binary.BigEndian, r.transactionID)
-	_ = binary.Write(writer, binary.BigEndian, r.message)
+	_ = binary.Write(writer, binary.BigEndian, []byte(r.message))
 	writer.Flush()
 
 	return buffer.Bytes()
@@ -92,6 +92,18 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 	case 1:
 		if _, ok := conns.Get(connectionID); !ok {
 			log.Error().Uint64("connection_id", connectionID).Msg("connection id not found for announce")
+			res := &ErrorResponse{
+				action:        3,
+				transactionID: transactionID,
+				message:       "Invalid connection ID",
+			}
+			pack := res.pack()
+
+			_, err := conn.WriteToUDP(pack, addr)
+			if err != nil {
+				log.Error().Err(err).Msg("cant write udp handle error")
+				return
+			}
 			return
 		}
 
@@ -99,6 +111,18 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 	case 2:
 		if _, ok := conns.Get(connectionID); !ok {
 			log.Error().Uint64("connection_id", connectionID).Msg("connection id not found for scrape")
+			res := &ErrorResponse{
+				action:        3,
+				transactionID: transactionID,
+				message:       "Invalid connection ID",
+			}
+			pack := res.pack()
+
+			_, err := conn.WriteToUDP(pack, addr)
+			if err != nil {
+				log.Error().Err(err).Msg("cant write udp handle error")
+				return
+			}
 			return
 		}
 
@@ -112,7 +136,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 		res := &ErrorResponse{
 			action:        3,
-			transactionID: uint(transactionID),
+			transactionID: transactionID,
 			message:       "Unknown action",
 		}
 		pack := res.pack()

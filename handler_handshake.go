@@ -69,7 +69,7 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 
 		res := &ErrorResponse{
 			action:        3,
-			transactionID: uint(req.transactionID),
+			transactionID: req.transactionID,
 			message:       "Invalid request",
 		}
 		pack := res.pack()

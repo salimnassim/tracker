@@ -33,10 +33,9 @@ func main() {
 	udp := tracker.NewUDPServer(os.Getenv("BT_UDP_ADDRESS"), udp_port)
 	http := tracker.NewHTTPServer(os.Getenv("BT_HTTP_ADDRESS"), http_port)
 
-	go server.StartUDP(udp)
-	log.Info().Str("address", os.Getenv("BT_UDP_ADDRESS")).Int("port", udp_port).Msg("started udp server")
+	server.Start([]tracker.Serverer{udp, http})
 
-	go server.StartHTTP(http)
+	log.Info().Str("address", os.Getenv("BT_UDP_ADDRESS")).Int("port", udp_port).Msg("started udp server")
 	log.Info().Str("address", os.Getenv("BT_HTTP_ADDRESS")).Int("port", http_port).Msg("started http server")
 
 	for event := range state {

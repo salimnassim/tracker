@@ -89,7 +89,7 @@ func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state ch
 		if !ok {
 			res := &ErrorResponse{
 				action:        3,
-				transactionID: uint(req.transactionID),
+				transactionID: req.transactionID,
 				message:       "Torrent not found",
 			}
 			pack := res.pack()

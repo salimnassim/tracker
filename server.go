@@ -38,10 +38,8 @@ func NewServer(state chan any, conns Storer[uint64, uint64], torrents Storer[Inf
 	}
 }
 
-func (s *Server) StartUDP(serverer UDPServerer) {
-	serverer.Serve(s.state, s.conns, s.torrents)
-}
-
-func (s *Server) StartHTTP(serverer HTTPServerer) {
-	serverer.Serve(s.conns, s.torrents)
+func (s *Server) Start(servers []Serverer) {
+	for _, server := range servers {
+		go server.Serve(s.state, s.conns, s.torrents)
+	}
 }
