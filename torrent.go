@@ -16,8 +16,8 @@ func (h InfoHash) MarshalText() (text []byte, err error) {
 
 type Torrent struct {
 	InfoHash  InfoHash         `json:"-"`
-	Peers     map[PeerID]*Peer `json:"peers"`
 	Completed uint32           `json:"completed"`
+	Peers     map[PeerID]*Peer `json:"peers"`
 }
 
 func (t *Torrent) MarshalJSON() ([]byte, error) {
@@ -44,6 +44,10 @@ func NewTorrent(infoHash InfoHash) *Torrent {
 
 func (r *Torrent) state() (leechers uint32, seeders uint32, completed uint32, peers [][6]byte) {
 	for _, peer := range r.Peers {
+		// skip stopped peers
+		if peer.Event == 3 {
+			continue
+		}
 		if peer.Left > 0 {
 			leechers++
 		}

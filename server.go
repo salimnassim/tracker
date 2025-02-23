@@ -87,6 +87,15 @@ func (s *Server) Start(servers []Serverer) error {
 				continue
 			}
 
+			if e.Event == 1 {
+				torrent.Completed = torrent.Completed + 1
+
+				log.Info().
+					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
+					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
+					Msg("announce completed")
+			}
+
 			peer.Event = e.Event
 			peer.Left = e.Left
 			peer.Downloaded = e.Downloaded
