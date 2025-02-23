@@ -20,6 +20,7 @@ type EventAnnounce struct {
 	Uploaded   uint64
 	Event      uint32
 	IP         uint32
+	Key        uint32
 	Port       uint16
 }
 
@@ -77,6 +78,7 @@ func (s *Server) Start(servers []Serverer) error {
 					Uploaded:   e.Uploaded,
 					IP:         e.IP,
 					Port:       e.Port,
+					Key:        e.Key,
 					Time:       time.Now().Unix(),
 				}
 
@@ -84,6 +86,14 @@ func (s *Server) Start(servers []Serverer) error {
 					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
 					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
 					Msg("announce peer created")
+				continue
+			}
+
+			if peer.Key != 0 && peer.Key != e.Key {
+				log.Info().
+					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
+					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
+					Msg("announce peer key mismatch")
 				continue
 			}
 
