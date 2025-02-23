@@ -12,6 +12,8 @@ import (
 
 type Serverer interface {
 	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent])
+	Address() string
+	Port() int
 }
 
 type UDPServer struct {
@@ -42,6 +44,14 @@ func NewUDPServer(address string, port int) *UDPServer {
 		address: address,
 		port:    port,
 	}
+}
+
+func (s *UDPServer) Address() string {
+	return s.address
+}
+
+func (s *UDPServer) Port() int {
+	return s.port
 }
 
 func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) {

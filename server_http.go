@@ -25,6 +25,14 @@ func NewHTTPServer(address string, port int) *HTTPServer {
 	}
 }
 
+func (s *HTTPServer) Address() string {
+	return s.address
+}
+
+func (s *HTTPServer) Port() int {
+	return s.port
+}
+
 func handler(torrents Storer[InfoHash, *Torrent]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

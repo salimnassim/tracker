@@ -1,6 +1,12 @@
 package tracker
 
-import "context"
+import (
+	"context"
+	"encoding/hex"
+	"time"
+
+	"github.com/rs/zerolog/log"
+)
 
 type EventConnection struct {
 	ConnectionID uint64
@@ -38,8 +44,74 @@ func NewServer(state chan any, conns Storer[uint64, uint64], torrents Storer[Inf
 	}
 }
 
-func (s *Server) Start(servers []Serverer) {
+func (s *Server) Start(servers []Serverer) error {
 	for _, server := range servers {
 		go server.Serve(s.state, s.conns, s.torrents)
+		log.Info().Str("address", server.Address()).Int("port", server.Port()).Msg("started server")
 	}
+
+	for event := range s.state {
+		switch e := event.(type) {
+		case EventConnection:
+			s.conns.Set(e.ConnectionID, 0)
+
+			log.Info().Uint64("connection_id", e.ConnectionID).Msg("connection created")
+		case EventAnnounce:
+			log.Info().Str("peer_id", hex.EncodeToString(e.PeerId[:])).Msg("announce")
+
+			torrent, ok := s.torrents.Get(e.InfoHash)
+			if !ok {
+				log.Error().
+					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
+					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
+					Msg("announce torrent not found")
+				continue
+			}
+
+			peer, ok := torrent.Peers[e.PeerId]
+			if !ok {
+				torrent.Peers[e.PeerId] = &Peer{
+					Event:      e.Event,
+					Left:       e.Left,
+					Downloaded: e.Downloaded,
+					Uploaded:   e.Uploaded,
+					IP:         e.IP,
+					Port:       e.Port,
+					Time:       time.Now().Unix(),
+				}
+
+				log.Info().
+					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
+					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
+					Msg("announce peer created")
+				continue
+			}
+
+			peer.Event = e.Event
+			peer.Left = e.Left
+			peer.Downloaded = e.Downloaded
+			peer.Uploaded = e.Uploaded
+			peer.IP = e.IP
+			peer.Port = e.Port
+			peer.Time = time.Now().Unix()
+
+			log.Info().
+				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
+				Str("peer_id", hex.EncodeToString(e.PeerId[:])).
+				Msg("peer updated")
+
+		case EventRegisterTorrent:
+			torrent := NewTorrent(e.InfoHash)
+			s.torrents.Set(e.InfoHash, torrent)
+
+			log.Info().
+				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
+				Msg("torrent registered")
+
+		case error:
+			log.Error().Err(e)
+		}
+	}
+
+	return nil
 }
