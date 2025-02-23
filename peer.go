@@ -19,6 +19,7 @@ type Peer struct {
 	Event      uint32 `json:"event"`
 	IP         uint32 `json:"ip"`
 	Port       uint16 `json:"port"`
+	Key        uint32 `json:"key"`
 	Time       int64  `json:"time"`
 }
 
