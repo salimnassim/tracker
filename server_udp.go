@@ -153,7 +153,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 		_, err := conn.WriteToUDP(pack, addr)
 		if err != nil {
-			log.Error().Err(err).Msg("cant write udp handshake error")
+			log.Error().Err(err).Msg("cant write udp unknown action error")
 			return
 		}
 		return
