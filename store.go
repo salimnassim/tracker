@@ -43,5 +43,7 @@ func (s *Store[K, V]) Delete(key K) {
 }
 
 func (s *Store[K, V]) MarshalJSON() ([]byte, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	return json.Marshal(s.store)
 }
