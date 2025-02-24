@@ -57,7 +57,7 @@ func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]
 		log.Fatal().
 			Msg("server torrents store is nil")
 	}
-	if torrents == nil {
+	if cache == nil {
 		log.Fatal().
 			Msg("server cache is nil")
 	}
