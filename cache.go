@@ -15,6 +15,7 @@ type Cacher[K comparable, V any] interface {
 
 type Cache[K comparable, V any] struct {
 	cache map[K]V
+
 	json.Marshaler
 }
 

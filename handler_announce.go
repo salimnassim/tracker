@@ -76,7 +76,6 @@ func (r *announceResponse) pack() []byte {
 func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[InfoHash, *Torrent]) {
 	req := &announceRequest{}
 	err := req.unpack(request)
-
 	if err != nil {
 		connectionID := binary.BigEndian.Uint64(request[0:8])
 		log.Error().Err(err).

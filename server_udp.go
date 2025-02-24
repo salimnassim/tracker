@@ -64,7 +64,6 @@ func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents
 	buffer := make([]byte, 256)
 	for {
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
-
 		if err != nil {
 			state <- err
 			continue

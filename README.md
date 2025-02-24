@@ -13,3 +13,5 @@ The tracker behavior is configured using environment variables:
 | `BT_UDP_ADDRESS` | The address the UDP tracker binds to | `0.0.0.0` |
 | `BT_UDP_PORT` | The port for the UDP tracker | `6118` |
 | `BT_UDP_URL` | The full UDP tracker URL (e.g., `udp://tracker.example.com:6118/announce`) | `udp://localhost:6118/announce` |
+| `CACHE_LIFETIME` | Torrent cache lifetime in seconds | `60` |
+| `PEER_EXPIRY` | Peer expiry in seconds | `3600` |

@@ -62,7 +62,6 @@ func (r *scrapeResponse) pack() []byte {
 func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[InfoHash, *Torrent]) {
 	req := &scrapeRequest{}
 	err := req.unpack(request)
-
 	if err != nil {
 		connectionID := binary.BigEndian.Uint64(request[0:8])
 		log.Error().Err(err).

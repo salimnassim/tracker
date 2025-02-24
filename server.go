@@ -28,6 +28,8 @@ type eventRegisterTorrent struct {
 	InfoHash [20]byte
 }
 
+type eventCacheUpdate struct{}
+
 type Serverer interface {
 	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent])
 	Address() string
@@ -36,12 +38,12 @@ type Serverer interface {
 
 type server struct {
 	ctx   context.Context
+	state chan any
+
 	conns Storer[uint64, uint64]
 
 	torrents Storer[InfoHash, *Torrent]
 	cache    Cacher[InfoHash, *Torrent]
-
-	state chan any
 }
 
 func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) *server {
@@ -80,8 +82,7 @@ func (s *server) Start(servers []Serverer) error {
 	go func(s *server) {
 		cacheTicker := time.NewTicker(30 * time.Second)
 		for range cacheTicker.C {
-			s.cache.FromStore(s.torrents)
-			log.Info().Int("size", s.cache.Size()).Msg("cache updated")
+			s.state <- eventCacheUpdate{}
 		}
 	}(s)
 
@@ -94,7 +95,9 @@ func (s *server) Start(servers []Serverer) error {
 				Uint64("connection_id", e.ConnectionID).
 				Msg("connection created")
 		case eventAnnounce:
-			log.Info().Str("peer_id", hex.EncodeToString(e.PeerId[:])).Msg("announce")
+			log.Info().
+				Str("peer_id", hex.EncodeToString(e.PeerId[:])).
+				Msg("announce")
 
 			torrent, ok := s.torrents.Get(e.InfoHash)
 			if !ok {
@@ -163,10 +166,15 @@ func (s *server) Start(servers []Serverer) error {
 				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
 				Msg("torrent registered")
 
+		case eventCacheUpdate:
+			s.cache.FromStore(s.torrents)
+			log.Info().
+				Int("size", s.cache.Size()).
+				Msg("cache updated")
+
 		case error:
 			log.Error().Err(e)
 		}
-
 	}
 
 	return nil

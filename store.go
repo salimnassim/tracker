@@ -9,12 +9,15 @@ type Storer[K comparable, V any] interface {
 	Set(key K, value V)
 	Get(key K) (V, bool)
 	Delete(key K)
+
 	json.Marshaler
 }
 
 type Store[K comparable, V any] struct {
 	store map[K]V
 	mutex sync.Mutex
+
+	json.Marshaler
 }
 
 func NewStore[K comparable, V any]() Storer[K, V] {
