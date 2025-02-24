@@ -12,10 +12,6 @@ import (
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
-	conns := tracker.NewStore[uint64, uint64]()
-	torrents := tracker.NewStore[tracker.InfoHash, *tracker.Torrent]()
-	server := tracker.NewServer(conns, torrents)
-
 	udp_port, err := strconv.Atoi(os.Getenv("BT_UDP_PORT"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("cant parse udp port")
@@ -24,6 +20,12 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("cant parse http port")
 	}
+
+	conns := tracker.NewStore[uint64, uint64]()
+	torrents := tracker.NewStore[tracker.InfoHash, *tracker.Torrent]()
+	cache := tracker.NewCache[tracker.InfoHash, *tracker.Torrent]()
+
+	server := tracker.NewServer(conns, torrents, cache)
 
 	udp := tracker.NewUDPServer(os.Getenv("BT_UDP_ADDRESS"), udp_port)
 	http := tracker.NewHTTPServer(os.Getenv("BT_HTTP_ADDRESS"), http_port)

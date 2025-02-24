@@ -29,40 +29,70 @@ type eventRegisterTorrent struct {
 }
 
 type Serverer interface {
-	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent])
+	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent])
 	Address() string
 	Port() int
 }
 
 type server struct {
-	ctx      context.Context
-	conns    Storer[uint64, uint64]
+	ctx   context.Context
+	conns Storer[uint64, uint64]
+
 	torrents Storer[InfoHash, *Torrent]
+	cache    Cacher[InfoHash, *Torrent]
 
 	state chan any
 }
 
-func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) *server {
+func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) *server {
+	if conns == nil {
+		log.Fatal().
+			Msg("server conns store is nil")
+	}
+	if torrents == nil {
+		log.Fatal().
+			Msg("server torrents store is nil")
+	}
+	if torrents == nil {
+		log.Fatal().
+			Msg("server cache is nil")
+	}
+
 	return &server{
 		ctx:      context.Background(),
 		conns:    conns,
 		torrents: torrents,
+		cache:    cache,
 		state:    make(chan any),
 	}
 }
 
 func (s *server) Start(servers []Serverer) error {
 	for _, server := range servers {
-		go server.Serve(s.state, s.conns, s.torrents)
-		log.Info().Str("address", server.Address()).Int("port", server.Port()).Msg("started server")
+		go server.Serve(s.state, s.conns, s.torrents, s.cache)
+		log.Info().
+			Str("address", server.Address()).
+			Int("port", server.Port()).
+			Msg("started server")
 	}
+
+	// update cache every n seconds
+	go func(s *server) {
+		cacheTicker := time.NewTicker(30 * time.Second)
+		for range cacheTicker.C {
+			s.cache.FromStore(s.torrents)
+			log.Info().Int("size", s.cache.Size()).Msg("cache updated")
+		}
+	}(s)
 
 	for event := range s.state {
 		switch e := event.(type) {
 		case eventConnection:
 			s.conns.Set(e.ConnectionID, uint64(time.Now().Unix()))
 
-			log.Info().Uint64("connection_id", e.ConnectionID).Msg("connection created")
+			log.Info().
+				Uint64("connection_id", e.ConnectionID).
+				Msg("connection created")
 		case eventAnnounce:
 			log.Info().Str("peer_id", hex.EncodeToString(e.PeerId[:])).Msg("announce")
 
@@ -136,6 +166,7 @@ func (s *server) Start(servers []Serverer) error {
 		case error:
 			log.Error().Err(e)
 		}
+
 	}
 
 	return nil
