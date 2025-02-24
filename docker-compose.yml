@@ -9,6 +9,7 @@ services:
       - BT_UDP_ADDRESS=
       - BT_UDP_PORT=6881
       - BT_UDP_URL=udp://localhost:6881
+      - CACHE_LIFETIME=30
     ports:
       - "8080:8080/tcp"
       - "6881:6881/udp"
