@@ -29,14 +29,12 @@ func (s *httpServer) Port() int {
 	return s.port
 }
 
-func handler(torrents Storer[InfoHash, *Torrent]) http.HandlerFunc {
+func handler(cache Cacher[InfoHash, *Torrent]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		// todo: cache
-
-		err := json.NewEncoder(w).Encode(torrents)
+		err := json.NewEncoder(w).Encode(cache)
 		if err != nil {
 			log.Error().Err(err).Msg("cant marshal torrents")
 			return
@@ -44,9 +42,9 @@ func handler(torrents Storer[InfoHash, *Torrent]) http.HandlerFunc {
 	}
 }
 
-func (s *httpServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) {
+func (s *httpServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", handler(torrents))
+	mux.HandleFunc("/", handler(cache))
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", s.address, s.port),

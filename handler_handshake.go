@@ -11,9 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var (
-	errorSizeMismatch = errors.New("bad message size")
-)
+var errorSizeMismatch = errors.New("bad message size")
 
 type handshakeRequest struct {
 	protocolID    uint64 // 0x41727101980
@@ -54,7 +52,6 @@ func (r *handshakeResponse) pack() []byte {
 func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any) {
 	req := &handshakeRequest{}
 	err := req.unpack(request)
-
 	if err != nil {
 		connectionID := binary.BigEndian.Uint64(request[0:8])
 		log.Error().Err(err).

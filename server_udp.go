@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type UDPServer struct {
+type udpServer struct {
 	address string
 	port    int
 }
@@ -33,22 +33,22 @@ func (r *errorResponse) pack() []byte {
 	return buffer.Bytes()
 }
 
-func NewUDPServer(address string, port int) *UDPServer {
-	return &UDPServer{
+func NewUDPServer(address string, port int) *udpServer {
+	return &udpServer{
 		address: address,
 		port:    port,
 	}
 }
 
-func (s *UDPServer) Address() string {
+func (s *udpServer) Address() string {
 	return s.address
 }
 
-func (s *UDPServer) Port() int {
+func (s *udpServer) Port() int {
 	return s.port
 }
 
-func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) {
+func (s *udpServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", s.address, s.port))
 	if err != nil {
 		state <- err
@@ -64,7 +64,6 @@ func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents
 	buffer := make([]byte, 256)
 	for {
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
-
 		if err != nil {
 			state <- err
 			continue
@@ -95,7 +94,10 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 		handleHandshake(conn, addr, request, state)
 	case 1:
 		if _, ok := conns.Get(connectionID); !ok {
-			log.Error().Uint64("connection_id", connectionID).Msg("connection id not found for announce")
+			log.Error().
+				Uint64("connection_id", connectionID).
+				Msg("connection id not found for announce")
+
 			res := &errorResponse{
 				action:        3,
 				transactionID: transactionID,
@@ -105,7 +107,8 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 			_, err := conn.WriteToUDP(pack, addr)
 			if err != nil {
-				log.Error().Err(err).Msg("cant write udp handle error")
+				log.Error().Err(err).
+					Msg("cant write udp handle error")
 				return
 			}
 			return
@@ -114,7 +117,8 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 		handleAnnounce(conn, addr, request, state, torrents)
 	case 2:
 		if _, ok := conns.Get(connectionID); !ok {
-			log.Error().Uint64("connection_id", connectionID).Msg("connection id not found for scrape")
+			log.Error().Uint64("connection_id", connectionID).
+				Msg("connection id not found for scrape")
 			res := &errorResponse{
 				action:        3,
 				transactionID: transactionID,
@@ -124,7 +128,8 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 			_, err := conn.WriteToUDP(pack, addr)
 			if err != nil {
-				log.Error().Err(err).Msg("cant write udp handle error")
+				log.Error().Err(err).
+					Msg("cant write udp handle error")
 				return
 			}
 			return
@@ -147,7 +152,8 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 		_, err := conn.WriteToUDP(pack, addr)
 		if err != nil {
-			log.Error().Err(err).Msg("cant write udp unknown action error")
+			log.Error().Err(err).
+				Msg("cant write udp unknown action error")
 			return
 		}
 		return

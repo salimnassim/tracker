@@ -3,6 +3,8 @@ package tracker
 import (
 	"context"
 	"encoding/hex"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -28,43 +30,81 @@ type eventRegisterTorrent struct {
 	InfoHash [20]byte
 }
 
+type eventCacheUpdate struct{}
+
 type Serverer interface {
-	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent])
+	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent])
 	Address() string
 	Port() int
 }
 
 type server struct {
-	ctx      context.Context
-	conns    Storer[uint64, uint64]
-	torrents Storer[InfoHash, *Torrent]
-
+	ctx   context.Context
 	state chan any
+
+	conns Storer[uint64, uint64]
+
+	torrents Storer[InfoHash, *Torrent]
+	cache    Cacher[InfoHash, *Torrent]
 }
 
-func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) *server {
+func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) *server {
+	if conns == nil {
+		log.Fatal().
+			Msg("server conns store is nil")
+	}
+	if torrents == nil {
+		log.Fatal().
+			Msg("server torrents store is nil")
+	}
+	if torrents == nil {
+		log.Fatal().
+			Msg("server cache is nil")
+	}
+
 	return &server{
 		ctx:      context.Background(),
 		conns:    conns,
 		torrents: torrents,
+		cache:    cache,
 		state:    make(chan any),
 	}
 }
 
 func (s *server) Start(servers []Serverer) error {
 	for _, server := range servers {
-		go server.Serve(s.state, s.conns, s.torrents)
-		log.Info().Str("address", server.Address()).Int("port", server.Port()).Msg("started server")
+		go server.Serve(s.state, s.conns, s.torrents, s.cache)
+		log.Info().
+			Str("address", server.Address()).
+			Int("port", server.Port()).
+			Msg("started server")
 	}
+
+	// update cache every n seconds
+	go func(s *server) {
+		cacheLifetime, err := strconv.Atoi(os.Getenv("CACHE_LIFETIME"))
+		if err != nil {
+			log.Fatal().Err(err).Msg("cant parse cache lifetime")
+		}
+
+		cacheTicker := time.NewTicker(time.Duration(cacheLifetime) * time.Second)
+		for range cacheTicker.C {
+			s.state <- eventCacheUpdate{}
+		}
+	}(s)
 
 	for event := range s.state {
 		switch e := event.(type) {
 		case eventConnection:
 			s.conns.Set(e.ConnectionID, uint64(time.Now().Unix()))
 
-			log.Info().Uint64("connection_id", e.ConnectionID).Msg("connection created")
+			log.Info().
+				Uint64("connection_id", e.ConnectionID).
+				Msg("connection created")
 		case eventAnnounce:
-			log.Info().Str("peer_id", hex.EncodeToString(e.PeerId[:])).Msg("announce")
+			log.Info().
+				Str("peer_id", hex.EncodeToString(e.PeerId[:])).
+				Msg("announce")
 
 			torrent, ok := s.torrents.Get(e.InfoHash)
 			if !ok {
@@ -132,6 +172,12 @@ func (s *server) Start(servers []Serverer) error {
 			log.Info().
 				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
 				Msg("torrent registered")
+
+		case eventCacheUpdate:
+			s.cache.FromStore(s.torrents)
+			log.Info().
+				Int("size", s.cache.Size()).
+				Msg("cache updated")
 
 		case error:
 			log.Error().Err(e)

@@ -3,7 +3,6 @@ package tracker
 import "testing"
 
 func Test(t *testing.T) {
-
 	t.Run("ok", func(t *testing.T) {
 		bytes := []byte{
 			0x41, 0x72, 0x71, 0x01, 0x98, 0x0, 0x0, 0x0, // Connection ID
@@ -24,12 +23,10 @@ func Test(t *testing.T) {
 		}
 		req := &announceRequest{}
 		err := req.unpack(bytes)
-
 		if err != nil {
 			t.Error(err)
 		}
 	})
-
 }
 
 func FuzzAnnounceUnpack(f *testing.F) {
