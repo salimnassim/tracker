@@ -3,6 +3,8 @@ package tracker
 import (
 	"context"
 	"encoding/hex"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -80,7 +82,12 @@ func (s *server) Start(servers []Serverer) error {
 
 	// update cache every n seconds
 	go func(s *server) {
-		cacheTicker := time.NewTicker(30 * time.Second)
+		cacheLifetime, err := strconv.Atoi(os.Getenv("CACHE_LIFETIME"))
+		if err != nil {
+			log.Fatal().Err(err).Msg("cant parse cache lifetime")
+		}
+
+		cacheTicker := time.NewTicker(time.Duration(cacheLifetime) * time.Second)
 		for range cacheTicker.C {
 			s.state <- eventCacheUpdate{}
 		}
