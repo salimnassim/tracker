@@ -13,33 +13,33 @@ type Cacher[K comparable, V any] interface {
 	json.Marshaler
 }
 
-type Cache[K comparable, V any] struct {
+type cache[K comparable, V any] struct {
 	cache map[K]V
 
 	json.Marshaler
 }
 
 func NewCache[K comparable, V any]() Cacher[K, V] {
-	return &Cache[K, V]{
+	return &cache[K, V]{
 		cache: make(map[K]V),
 	}
 }
 
-func (r *Cache[K, V]) Get(key K) (V, bool) {
+func (r *cache[K, V]) Get(key K) (V, bool) {
 	val, exists := r.cache[key]
 	return val, exists
 }
 
-func (r *Cache[K, V]) Size() int {
+func (r *cache[K, V]) Size() int {
 	return len(r.cache)
 }
 
-func (r *Cache[K, V]) MarshalJSON() ([]byte, error) {
+func (r *cache[K, V]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(r.cache)
 }
 
-func (c *Cache[K, V]) FromStore(s Storer[K, V]) {
-	store, ok := s.(*Store[K, V])
+func (c *cache[K, V]) FromStore(s Storer[K, V]) {
+	store, ok := s.(*store[K, V])
 	if !ok {
 		c.cache = make(map[K]V)
 		return

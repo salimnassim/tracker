@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type UDPServer struct {
+type udpServer struct {
 	address string
 	port    int
 }
@@ -33,22 +33,22 @@ func (r *errorResponse) pack() []byte {
 	return buffer.Bytes()
 }
 
-func NewUDPServer(address string, port int) *UDPServer {
-	return &UDPServer{
+func NewUDPServer(address string, port int) *udpServer {
+	return &udpServer{
 		address: address,
 		port:    port,
 	}
 }
 
-func (s *UDPServer) Address() string {
+func (s *udpServer) Address() string {
 	return s.address
 }
 
-func (s *UDPServer) Port() int {
+func (s *udpServer) Port() int {
 	return s.port
 }
 
-func (s *UDPServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
+func (s *udpServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", s.address, s.port))
 	if err != nil {
 		state <- err
