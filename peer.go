@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 )
 
 type PeerID [20]byte
@@ -34,20 +35,17 @@ func (p *Peer) pack() []byte {
 	return buffer.Bytes()
 }
 
-// func (p *Peer) MarshalJSON() ([]byte, error) {
-// 	type alias Peer
-// 	type dto struct {
-// 		*alias
-// 		IP string `json:"ip"`
-// 	}
+func (p *Peer) MarshalJSON() ([]byte, error) {
+	type alias Peer
+	type dto struct {
+		*alias
+		IP   uint32 `json:"ip,omitempty"`
+		Port uint16 `json:"port,omitempty"`
+		Key  uint32 `json:"key,omitempty"`
+		Time int64  `json:"time,omitempty"`
+	}
 
-// 	return json.Marshal(&dto{
-// 		alias: (*alias)(p),
-// 		IP: fmt.Sprintf("%d.%d.%d.%d",
-// 			byte(p.IP>>24),
-// 			byte(p.IP>>16),
-// 			byte(p.IP>>8),
-// 			byte(p.IP),
-// 		),
-// 	})
-// }
+	return json.Marshal(&dto{
+		alias: (*alias)(p),
+	})
+}
