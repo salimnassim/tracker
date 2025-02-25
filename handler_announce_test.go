@@ -32,6 +32,9 @@ func Test(t *testing.T) {
 func FuzzAnnounceUnpack(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		req := &announceRequest{}
-		_ = req.unpack(data)
+		err := req.unpack(data)
+		if err != nil {
+			t.Error(err)
+		}
 	})
 }
