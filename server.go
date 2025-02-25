@@ -94,6 +94,11 @@ func (s *server) Start(servers []Serverer) error {
 		}
 	}(s)
 
+	peerLifetime, err := strconv.Atoi(os.Getenv("PEER_LIFETIME"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("cant parse peer lifetime")
+	}
+
 	// remove expired peers every n seconds
 	go func(s *server) {
 		peerInterval, err := strconv.Atoi(os.Getenv("PEER_INTERVAL"))
@@ -197,20 +202,24 @@ func (s *server) Start(servers []Serverer) error {
 			s.torrents.Map(func(ih InfoHash, t *Torrent) {
 				expiredPeers := []PeerID{}
 				for peerID, peer := range t.Peers {
-					// todo: use env
-					if time.Now().After(peer.Time.Add(3600 * time.Second)) {
+					if time.Now().After(peer.Time.Add(time.Duration(peerLifetime) * time.Second)) {
 						expiredPeers = append(expiredPeers, peerID)
 					}
 				}
 				if len(expiredPeers) == 0 {
-					log.Debug().Msg("expired peers not found")
+					log.Debug().
+						Str("info_hash", hex.EncodeToString(ih[:])).
+						Msg("expired peers not found")
 					return
 				}
 
 				for _, peer := range expiredPeers {
 					delete(t.Peers, peer)
 				}
-				log.Debug().Msg("expired peers removed")
+
+				log.Debug().
+					Str("info_hash", hex.EncodeToString(ih[:])).
+					Msg("expired peers deleted")
 			})
 
 		case error:
