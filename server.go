@@ -30,10 +30,11 @@ type eventRegisterTorrent struct {
 	InfoHash [20]byte
 }
 
-type eventCacheUpdate struct{}
+type eventCacheLifetime struct{}
+type eventPeerLifetime struct{}
 
 type Serverer interface {
-	Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent])
+	Serve(state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent])
 	Address() string
 	Port() int
 }
@@ -42,13 +43,13 @@ type server struct {
 	ctx   context.Context
 	state chan any
 
-	conns Storer[uint64, uint64]
+	conns Storer[uint64, time.Time]
 
 	torrents Storer[InfoHash, *Torrent]
 	cache    Cacher[InfoHash, *Torrent]
 }
 
-func NewServer(conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) *server {
+func NewServer(conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) *server {
 	if conns == nil {
 		log.Fatal().
 			Msg("server conns store is nil")
@@ -82,21 +83,39 @@ func (s *server) Start(servers []Serverer) error {
 
 	// update cache every n seconds
 	go func(s *server) {
-		cacheLifetime, err := strconv.Atoi(os.Getenv("CACHE_LIFETIME"))
+		cacheInterval, err := strconv.Atoi(os.Getenv("CACHE_INTERVAL"))
 		if err != nil {
-			log.Fatal().Err(err).Msg("cant parse cache lifetime")
+			log.Fatal().Err(err).Msg("cant parse cache interval")
 		}
 
-		cacheTicker := time.NewTicker(time.Duration(cacheLifetime) * time.Second)
+		cacheTicker := time.NewTicker(time.Duration(cacheInterval) * time.Second)
 		for range cacheTicker.C {
-			s.state <- eventCacheUpdate{}
+			s.state <- eventCacheLifetime{}
+		}
+	}(s)
+
+	peerLifetime, err := strconv.Atoi(os.Getenv("PEER_LIFETIME"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("cant parse peer lifetime")
+	}
+
+	// remove expired peers every n seconds
+	go func(s *server) {
+		peerInterval, err := strconv.Atoi(os.Getenv("PEER_INTERVAL"))
+		if err != nil {
+			log.Fatal().Err(err).Msg("cant parse peer interval")
+		}
+
+		peerTicker := time.NewTicker(time.Duration(peerInterval) * time.Second)
+		for range peerTicker.C {
+			s.state <- eventPeerLifetime{}
 		}
 	}(s)
 
 	for event := range s.state {
 		switch e := event.(type) {
 		case eventConnection:
-			s.conns.Set(e.ConnectionID, uint64(time.Now().Unix()))
+			s.conns.Set(e.ConnectionID, time.Now().UTC())
 
 			log.Info().
 				Uint64("connection_id", e.ConnectionID).
@@ -125,7 +144,7 @@ func (s *server) Start(servers []Serverer) error {
 					IP:         e.IP,
 					Port:       e.Port,
 					Key:        e.Key,
-					Time:       time.Now().Unix(),
+					Time:       time.Now().UTC(),
 				}
 
 				log.Info().
@@ -158,7 +177,7 @@ func (s *server) Start(servers []Serverer) error {
 			peer.Uploaded = e.Uploaded
 			peer.IP = e.IP
 			peer.Port = e.Port
-			peer.Time = time.Now().Unix()
+			peer.Time = time.Now().UTC()
 
 			log.Info().
 				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
@@ -173,11 +192,35 @@ func (s *server) Start(servers []Serverer) error {
 				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
 				Msg("torrent registered")
 
-		case eventCacheUpdate:
+		case eventCacheLifetime:
 			s.cache.FromStore(s.torrents)
 			log.Info().
 				Int("size", s.cache.Size()).
 				Msg("cache updated")
+
+		case eventPeerLifetime:
+			s.torrents.Map(func(ih InfoHash, t *Torrent) {
+				expiredPeers := []PeerID{}
+				for peerID, peer := range t.Peers {
+					if time.Now().After(peer.Time.Add(time.Duration(peerLifetime) * time.Second)) {
+						expiredPeers = append(expiredPeers, peerID)
+					}
+				}
+				if len(expiredPeers) == 0 {
+					log.Debug().
+						Str("info_hash", hex.EncodeToString(ih[:])).
+						Msg("expired peers not found")
+					return
+				}
+
+				for _, peer := range expiredPeers {
+					delete(t.Peers, peer)
+				}
+
+				log.Debug().
+					Str("info_hash", hex.EncodeToString(ih[:])).
+					Msg("expired peers deleted")
+			})
 
 		case error:
 			log.Error().Err(e)

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -20,12 +21,12 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("cant parse http port")
 	}
-	_, err = strconv.Atoi(os.Getenv("CACHE_LIFETIME"))
+	_, err = strconv.Atoi(os.Getenv("CACHE_INTERVAL"))
 	if err != nil {
-		log.Fatal().Err(err).Msg("cant parse cache lifetime")
+		log.Fatal().Err(err).Msg("cant parse cache interval")
 	}
 
-	conns := tracker.NewStore[uint64, uint64]()
+	conns := tracker.NewStore[uint64, time.Time]()
 	torrents := tracker.NewStore[tracker.InfoHash, *tracker.Torrent]()
 	cache := tracker.NewCache[tracker.InfoHash, *tracker.Torrent]()
 
