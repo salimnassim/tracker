@@ -42,7 +42,7 @@ func handler(cache Cacher[InfoHash, *Torrent]) http.HandlerFunc {
 	}
 }
 
-func (s *httpServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
+func (s *httpServer) Serve(state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler(cache))
 

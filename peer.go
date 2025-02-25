@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"time"
 )
 
 type PeerID [20]byte
@@ -14,14 +15,14 @@ func (h PeerID) MarshalText() (text []byte, err error) {
 }
 
 type Peer struct {
-	Downloaded uint64 `json:"downloaded"`
-	Left       uint64 `json:"left"`
-	Uploaded   uint64 `json:"uploaded"`
-	Event      uint32 `json:"event"`
-	IP         uint32 `json:"ip"`
-	Port       uint16 `json:"port"`
-	Key        uint32 `json:"key"`
-	Time       int64  `json:"time"`
+	Downloaded uint64    `json:"downloaded"`
+	Left       uint64    `json:"left"`
+	Uploaded   uint64    `json:"uploaded"`
+	Event      uint32    `json:"event"`
+	IP         uint32    `json:"ip"`
+	Port       uint16    `json:"port"`
+	Key        uint32    `json:"key"`
+	Time       time.Time `json:"time"`
 }
 
 func (p *Peer) pack() []byte {
@@ -39,10 +40,10 @@ func (p *Peer) MarshalJSON() ([]byte, error) {
 	type alias Peer
 	type dto struct {
 		*alias
-		IP   uint32 `json:"ip,omitempty"`
-		Port uint16 `json:"port,omitempty"`
-		Key  uint32 `json:"key,omitempty"`
-		Time int64  `json:"time,omitempty"`
+		IP   uint32    `json:"ip,omitempty"`
+		Port uint16    `json:"port,omitempty"`
+		Key  uint32    `json:"key,omitempty"`
+		Time time.Time `json:"time,omitzero"`
 	}
 
 	return json.Marshal(&dto{

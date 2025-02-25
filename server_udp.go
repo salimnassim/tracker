@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -48,7 +49,7 @@ func (s *udpServer) Port() int {
 	return s.port
 }
 
-func (s *udpServer) Serve(state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
+func (s *udpServer) Serve(state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", s.address, s.port))
 	if err != nil {
 		state <- err
@@ -73,7 +74,7 @@ func (s *udpServer) Serve(state chan any, conns Storer[uint64, uint64], torrents
 	}
 }
 
-func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, conns Storer[uint64, uint64], torrents Storer[InfoHash, *Torrent]) {
+func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent]) {
 	if len(request) < 16 {
 		log.Error().Msgf("packet size less than 16")
 		return
