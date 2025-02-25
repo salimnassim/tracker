@@ -15,5 +15,5 @@ The tracker behavior is configured using environment variables:
 | `BT_UDP_URL` | The full UDP tracker URL | `udp://localhost:6118/announce` |
 | `CACHE_INTERVAL` | Cache update interval | `60` |
 | `PEER_INTERVAL` | Peer expiry check interval | `1200` |
-| `PEER_MAX_AGE` | Peer max age | `3600` |
+| `PEER_LIFETIME` | Peer expiry lifetime | `3600` |
 
