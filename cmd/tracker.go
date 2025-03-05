@@ -45,13 +45,18 @@ func main() {
 	torrents := tracker.NewStore[tracker.InfoHash, *tracker.Torrent]()
 	cache := tracker.NewCache[tracker.InfoHash, *tracker.Torrent]()
 
-	server := tracker.NewServer(conns, torrents, cache)
-
-	udp := tracker.NewUDPServer(os.Getenv("BT_UDP_ADDRESS"), udpPort)
-	http := tracker.NewHTTPServer(os.Getenv("BT_HTTP_ADDRESS"), httpPort)
-
-	err = server.Start([]tracker.Serverer{udp, http})
+	server, err := tracker.NewServer(conns, torrents, cache)
 	if err != nil {
-		log.Fatal().Err(err)
+		log.Error().Err(err)
+		return
+	}
+
+	udp := tracker.NewUDPServer()
+	http := tracker.NewHTTPServer()
+
+	err = server.Start(config, []tracker.Serverer{udp, http})
+	if err != nil {
+		log.Error().Err(err)
+		return
 	}
 }

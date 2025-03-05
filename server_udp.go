@@ -40,23 +40,12 @@ func (r *errorResponse) pack() []byte {
 	return buffer.Bytes()
 }
 
-func NewUDPServer(address string, port int) *udpServer {
-	return &udpServer{
-		address: address,
-		port:    port,
-	}
+func NewUDPServer() *udpServer {
+	return &udpServer{}
 }
 
-func (s *udpServer) Address() string {
-	return s.address
-}
-
-func (s *udpServer) Port() int {
-	return s.port
-}
-
-func (s *udpServer) Serve(state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", s.address, s.port))
+func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.udpAddress, config.udpPort))
 	if err != nil {
 		state <- err
 		return
