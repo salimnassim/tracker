@@ -9,24 +9,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type httpServer struct {
-	address string
-	port    int
-}
+type httpServer struct{}
 
-func NewHTTPServer(address string, port int) *httpServer {
-	return &httpServer{
-		address: address,
-		port:    port,
-	}
-}
-
-func (s *httpServer) Address() string {
-	return s.address
-}
-
-func (s *httpServer) Port() int {
-	return s.port
+func NewHTTPServer() *httpServer {
+	return &httpServer{}
 }
 
 func handler(cache Cacher[InfoHash, *Torrent]) http.HandlerFunc {
@@ -42,12 +28,12 @@ func handler(cache Cacher[InfoHash, *Torrent]) http.HandlerFunc {
 	}
 }
 
-func (s *httpServer) Serve(state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
+func (s *httpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler(cache))
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", s.address, s.port),
+		Addr:         fmt.Sprintf("%s:%d", config.httpAddress, config.httpPort),
 		Handler:      mux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,

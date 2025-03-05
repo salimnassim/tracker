@@ -3,11 +3,15 @@ package tracker
 import (
 	"context"
 	"encoding/hex"
-	"os"
-	"strconv"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/rs/zerolog/log"
+)
+
+var (
+	errorServerArg = errors.New("server arg is nil")
 )
 
 type eventConnection struct {
@@ -34,9 +38,7 @@ type eventCacheLifetime struct{}
 type eventPeerLifetime struct{}
 
 type Serverer interface {
-	Serve(state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent])
-	Address() string
-	Port() int
+	Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent])
 }
 
 type server struct {
@@ -49,18 +51,15 @@ type server struct {
 	cache    Cacher[InfoHash, *Torrent]
 }
 
-func NewServer(conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) *server {
+func NewServer(conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) (*server, error) {
 	if conns == nil {
-		log.Fatal().
-			Msg("server conns store is nil")
+		return nil, fmt.Errorf("%w: conns store", errorServerArg)
 	}
 	if torrents == nil {
-		log.Fatal().
-			Msg("server torrents store is nil")
+		return nil, fmt.Errorf("%w: torrents store", errorServerArg)
 	}
 	if cache == nil {
-		log.Fatal().
-			Msg("server cache is nil")
+		return nil, fmt.Errorf("%w: cache store", errorServerArg)
 	}
 
 	return &server{
@@ -69,44 +68,26 @@ func NewServer(conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torre
 		torrents: torrents,
 		cache:    cache,
 		state:    make(chan any),
-	}
+	}, nil
 }
 
-func (s *server) Start(servers []Serverer) error {
+func (s *server) Start(config *config, servers []Serverer) error {
 	for _, server := range servers {
-		go server.Serve(s.state, s.conns, s.torrents, s.cache)
-		log.Info().
-			Str("address", server.Address()).
-			Int("port", server.Port()).
-			Msg("started server")
+		go server.Serve(config, s.state, s.conns, s.torrents, s.cache)
+		log.Info().Str("type", fmt.Sprintf("%T", server)).Msg("started server")
 	}
 
-	// update cache every n seconds
 	go func(s *server) {
-		cacheInterval, err := strconv.Atoi(os.Getenv("CACHE_INTERVAL"))
-		if err != nil {
-			log.Fatal().Err(err).Msg("cant parse cache interval")
-		}
-
-		cacheTicker := time.NewTicker(time.Duration(cacheInterval) * time.Second)
-		for range cacheTicker.C {
+		log.Info().Msg("started cache ticker")
+		ticker := time.NewTicker(config.cacheInterval * time.Second)
+		for range ticker.C {
 			s.state <- eventCacheLifetime{}
 		}
 	}(s)
 
-	peerLifetime, err := strconv.Atoi(os.Getenv("PEER_LIFETIME"))
-	if err != nil {
-		log.Fatal().Err(err).Msg("cant parse peer lifetime")
-	}
-
-	// remove expired peers every n seconds
 	go func(s *server) {
-		peerInterval, err := strconv.Atoi(os.Getenv("PEER_INTERVAL"))
-		if err != nil {
-			log.Fatal().Err(err).Msg("cant parse peer interval")
-		}
-
-		peerTicker := time.NewTicker(time.Duration(peerInterval) * time.Second)
+		log.Info().Msg("started peer ticker")
+		peerTicker := time.NewTicker(config.peerInterval * time.Second)
 		for range peerTicker.C {
 			s.state <- eventPeerLifetime{}
 		}
@@ -193,7 +174,7 @@ func (s *server) Start(servers []Serverer) error {
 				Msg("torrent registered")
 
 		case eventCacheLifetime:
-			s.cache.FromStore(s.torrents)
+			s.cache.Freeze(s.torrents)
 			log.Info().
 				Int("size", s.cache.Size()).
 				Msg("cache updated")
@@ -202,7 +183,7 @@ func (s *server) Start(servers []Serverer) error {
 			s.torrents.Map(func(ih InfoHash, t *Torrent) {
 				expiredPeers := []PeerID{}
 				for peerID, peer := range t.Peers {
-					if time.Now().After(peer.Time.Add(time.Duration(peerLifetime) * time.Second)) {
+					if time.Now().After(peer.Time.Add(config.peerLifetime * time.Second)) {
 						expiredPeers = append(expiredPeers, peerID)
 					}
 				}
