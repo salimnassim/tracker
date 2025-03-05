@@ -174,7 +174,7 @@ func (s *server) Start(config *config, servers []Serverer) error {
 				Msg("torrent registered")
 
 		case eventCacheLifetime:
-			s.cache.FromStore(s.torrents)
+			s.cache.Freeze(s.torrents)
 			log.Info().
 				Int("size", s.cache.Size()).
 				Msg("cache updated")
