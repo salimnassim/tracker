@@ -17,11 +17,6 @@ const (
 	actionScrape    = 2
 )
 
-type udpServer struct {
-	address string
-	port    int
-}
-
 type errorResponse struct {
 	action        uint32
 	transactionID uint32
@@ -39,6 +34,8 @@ func (r *errorResponse) pack() []byte {
 
 	return buffer.Bytes()
 }
+
+type udpServer struct{}
 
 func NewUDPServer() *udpServer {
 	return &udpServer{}
