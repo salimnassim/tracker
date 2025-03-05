@@ -7,7 +7,7 @@ import (
 
 type Cacher[K comparable, V any] interface {
 	Get(key K) (V, bool)
-	FromStore(s Storer[K, V])
+	Freeze(s Storer[K, V])
 	Size() int
 
 	json.Marshaler
@@ -38,7 +38,7 @@ func (r *cache[K, V]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(r.cache)
 }
 
-func (c *cache[K, V]) FromStore(s Storer[K, V]) {
+func (c *cache[K, V]) Freeze(s Storer[K, V]) {
 	store, ok := s.(*store[K, V])
 	if !ok {
 		c.cache = make(map[K]V)
