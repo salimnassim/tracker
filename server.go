@@ -166,7 +166,7 @@ func (s *server) Start(config *config, servers []Serverer) error {
 				Msg("peer updated")
 
 		case eventRegisterTorrent:
-			torrent := NewTorrent(e.InfoHash)
+			torrent := NewTorrent(e.InfoHash, config)
 			s.torrents.Set(e.InfoHash, torrent)
 
 			log.Info().

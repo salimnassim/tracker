@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"os"
 )
 
 type InfoHash [20]byte
@@ -16,6 +14,7 @@ func (h InfoHash) MarshalText() (text []byte, err error) {
 
 type Torrent struct {
 	InfoHash  InfoHash         `json:"-"`
+	Magnet    string           `json:"magnet"`
 	Completed uint32           `json:"completed"`
 	Peers     map[PeerID]*Peer `json:"peers"`
 }
@@ -23,20 +22,20 @@ type Torrent struct {
 func (t *Torrent) MarshalJSON() ([]byte, error) {
 	type alias Torrent
 	type dto struct {
-		Magnet string `json:"magnet"`
 		*alias
 	}
 
-	udp_tracker_url := url.QueryEscape(os.Getenv("BT_UDP_URL"))
 	return json.Marshal(&dto{
-		Magnet: fmt.Sprintf("magnet:?xt=urn:btih:%x&tr=%s", t.InfoHash, udp_tracker_url),
-		alias:  (*alias)(t),
+		alias: (*alias)(t),
 	})
 }
 
-func NewTorrent(infoHash InfoHash) *Torrent {
+func NewTorrent(infoHash InfoHash, config *config) *Torrent {
+	magnet := fmt.Sprintf("magnet:?xt=urn:btih:%x&tr=%s", infoHash, config.udpURL)
+
 	return &Torrent{
 		InfoHash:  infoHash,
+		Magnet:    magnet,
 		Peers:     map[PeerID]*Peer{},
 		Completed: 0,
 	}
