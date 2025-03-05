@@ -11,6 +11,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	actionHandshake = 0
+	actionAnnounce  = 1
+	actionScrape    = 2
+)
+
 type udpServer struct {
 	address string
 	port    int
@@ -91,9 +97,9 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 		Msg("request")
 
 	switch action {
-	case 0:
+	case actionHandshake:
 		handleHandshake(conn, addr, request, state)
-	case 1:
+	case actionAnnounce:
 		if _, ok := conns.Get(connectionID); !ok {
 			log.Error().
 				Uint64("connection_id", connectionID).
@@ -116,7 +122,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 		}
 
 		handleAnnounce(conn, addr, request, state, torrents)
-	case 2:
+	case actionScrape:
 		if _, ok := conns.Get(connectionID); !ok {
 			log.Error().Uint64("connection_id", connectionID).
 				Msg("connection id not found for scrape")
