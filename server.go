@@ -34,11 +34,10 @@ type eventRegisterTorrent struct {
 	InfoHash [20]byte
 }
 
-type eventCacheLifetime struct{}
 type eventPeerLifetime struct{}
 
 type Serverer interface {
-	Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent])
+	Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent])
 }
 
 type server struct {
@@ -48,42 +47,29 @@ type server struct {
 	conns Storer[uint64, time.Time]
 
 	torrents Storer[InfoHash, *Torrent]
-	cache    Cacher[InfoHash, *Torrent]
 }
 
-func NewServer(conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) (*server, error) {
+func NewServer(conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent]) (*server, error) {
 	if conns == nil {
 		return nil, fmt.Errorf("%w: conns store", errorServerArg)
 	}
 	if torrents == nil {
 		return nil, fmt.Errorf("%w: torrents store", errorServerArg)
 	}
-	if cache == nil {
-		return nil, fmt.Errorf("%w: cache store", errorServerArg)
-	}
 
 	return &server{
 		ctx:      context.Background(),
 		conns:    conns,
 		torrents: torrents,
-		cache:    cache,
 		state:    make(chan any),
 	}, nil
 }
 
 func (s *server) Start(config *config, servers []Serverer) error {
 	for _, server := range servers {
-		go server.Serve(config, s.state, s.conns, s.torrents, s.cache)
+		go server.Serve(config, s.state, s.conns, s.torrents)
 		log.Info().Str("type", fmt.Sprintf("%T", server)).Msg("started server")
 	}
-
-	go func(s *server) {
-		log.Info().Msg("started cache ticker")
-		ticker := time.NewTicker(config.cacheInterval * time.Second)
-		for range ticker.C {
-			s.state <- eventCacheLifetime{}
-		}
-	}(s)
 
 	go func(s *server) {
 		log.Info().Msg("started peer ticker")
@@ -172,12 +158,6 @@ func (s *server) Start(config *config, servers []Serverer) error {
 			log.Info().
 				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
 				Msg("torrent registered")
-
-		case eventCacheLifetime:
-			s.cache.Freeze(s.torrents)
-			log.Info().
-				Int("size", s.cache.Size()).
-				Msg("cache updated")
 
 		case eventPeerLifetime:
 			s.torrents.Map(func(ih InfoHash, t *Torrent) {

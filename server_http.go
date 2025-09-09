@@ -15,12 +15,12 @@ func NewHTTPServer() *httpServer {
 	return &httpServer{}
 }
 
-func handler(cache Cacher[InfoHash, *Torrent]) http.HandlerFunc {
+func handler(torrents Storer[InfoHash, *Torrent]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		err := json.NewEncoder(w).Encode(cache)
+		err := json.NewEncoder(w).Encode(torrents)
 		if err != nil {
 			log.Error().Err(err).Msg("cant marshal torrents")
 			return
@@ -28,9 +28,9 @@ func handler(cache Cacher[InfoHash, *Torrent]) http.HandlerFunc {
 	}
 }
 
-func (s *httpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
+func (s *httpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent]) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", handler(cache))
+	mux.HandleFunc("/", handler(torrents))
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", config.httpAddress, config.httpPort),

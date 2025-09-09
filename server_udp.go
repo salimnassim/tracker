@@ -41,7 +41,7 @@ func NewUDPServer() *udpServer {
 	return &udpServer{}
 }
 
-func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent], cache Cacher[InfoHash, *Torrent]) {
+func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent]) {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.udpAddress, config.udpPort))
 	if err != nil {
 		state <- err
