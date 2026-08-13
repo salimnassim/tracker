@@ -35,7 +35,7 @@ type eventRegisterTorrent struct {
 type eventPeerLifetime struct{}
 
 type Serverer interface {
-	Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore)
+	Serve(ctx context.Context, config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore)
 }
 
 type server struct {
@@ -47,7 +47,7 @@ type server struct {
 	torrents TorrentStore
 }
 
-func NewServer(conns Storer[uint64, time.Time], torrents TorrentStore) (*server, error) {
+func NewServer(ctx context.Context, conns Storer[uint64, time.Time], torrents TorrentStore) (*server, error) {
 	if conns == nil {
 		return nil, fmt.Errorf("%w: conns store", errorServerArg)
 	}
@@ -56,7 +56,7 @@ func NewServer(conns Storer[uint64, time.Time], torrents TorrentStore) (*server,
 	}
 
 	return &server{
-		ctx:      context.Background(),
+		ctx:      ctx,
 		conns:    conns,
 		torrents: torrents,
 		state:    make(chan any),
@@ -65,19 +65,37 @@ func NewServer(conns Storer[uint64, time.Time], torrents TorrentStore) (*server,
 
 func (s *server) Start(config *config, servers []Serverer) error {
 	for _, server := range servers {
-		go server.Serve(config, s.state, s.conns, s.torrents)
+		go server.Serve(s.ctx, config, s.state, s.conns, s.torrents)
 		slog.Info("started server", "type", fmt.Sprintf("%T", server))
 	}
 
 	go func(s *server) {
 		slog.Info("started peer ticker")
 		peerTicker := time.NewTicker(config.peerInterval * time.Second)
-		for range peerTicker.C {
-			s.state <- eventPeerLifetime{}
+		defer peerTicker.Stop()
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case <-peerTicker.C:
+				select {
+				case s.state <- eventPeerLifetime{}:
+				case <-s.ctx.Done():
+					return
+				}
+			}
 		}
 	}(s)
 
-	for event := range s.state {
+	for {
+		var event any
+		select {
+		case <-s.ctx.Done():
+			slog.Info("shutting down")
+			return nil
+		case event = <-s.state:
+		}
+
 		switch e := event.(type) {
 		case eventConnection:
 			s.conns.Set(e.ConnectionID, time.Now().UTC())
@@ -202,6 +220,4 @@ func (s *server) Start(config *config, servers []Serverer) error {
 			slog.Error("server error", "error", e)
 		}
 	}
-
-	return nil
 }

@@ -3,7 +3,9 @@ package tracker
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -40,7 +42,7 @@ func NewUDPServer() *udpServer {
 	return &udpServer{}
 }
 
-func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore) {
+func (s *udpServer) Serve(ctx context.Context, config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore) {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.udpAddress, config.udpPort))
 	if err != nil {
 		state <- err
@@ -53,10 +55,19 @@ func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, t
 		return
 	}
 
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
+
 	for {
 		buffer := make([]byte, 256)
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				slog.Info("udp listener closed")
+				return
+			}
 			state <- err
 			continue
 		}

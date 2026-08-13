@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/pressly/goose/v3"
@@ -13,6 +16,9 @@ import (
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	udpPort, err := strconv.Atoi(os.Getenv("BT_UDP_PORT"))
 	if err != nil {
@@ -69,7 +75,7 @@ func main() {
 	torrents := trackerdb.NewTorrentStore(sqlDB)
 	defer torrents.Close()
 
-	server, err := tracker.NewServer(conns, torrents)
+	server, err := tracker.NewServer(ctx, conns, torrents)
 	if err != nil {
 		slog.Error("failed to create server", "error", err)
 		return

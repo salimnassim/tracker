@@ -1,7 +1,9 @@
 package tracker
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -33,7 +35,7 @@ func handler(torrents TorrentStore) http.HandlerFunc {
 	}
 }
 
-func (s *httpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore) {
+func (s *httpServer) Serve(ctx context.Context, config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler(torrents))
 
@@ -45,7 +47,16 @@ func (s *httpServer) Serve(config *config, state chan any, conns Storer[uint64, 
 		IdleTimeout:  5 * time.Second,
 	}
 
-	if err := srv.ListenAndServe(); err != nil {
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			slog.Error("http server shutdown error", "error", err)
+		}
+	}()
+
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("http server error", "error", err)
 	}
 }
