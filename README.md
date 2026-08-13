@@ -1,57 +1,67 @@
 # tracker
 
-This is a BitTorrent tracker that provides both an HTTP API index list and a UDP tracker for torrent clients.
+A UDP BitTorrent tracker written in Go. It handles the connect/announce/scrape handshake, persists torrents and peers to SQLite, and exposes a small HTTP endpoint for inspecting swarm state.
 
-## Configuration
+## Contents
 
-The tracker behavior is configured using environment variables:
+- `server_udp.go`, `handler_handshake.go`, `handler_announce.go`, `handler_scrape.go` the UDP tracker protocol: connection ID handshake, peer announces, and swarm scraping.
+- `server_http.go` a read-only HTTP endpoint (`GET /`) that dumps all known torrents and peers as JSON.
+- `server.go` the event loop tying UDP/HTTP servers together, applying announces, registering new torrents, and expiring stale peers on a timer.
+- `torrent.go`, `peer.go` core domain types (`Torrent`, `Peer`, `InfoHash`, `PeerID`) and swarm state (seeders/leechers/completed) derivation.
+- `store.go` a generic in-memory, JSON-marshalable key/value store used for tracking active UDP connection IDs.
+- `db/` SQLite-backed `TorrentStore` implementation.
+- `cmd/tracker.go` the binary entrypoint: reads configuration from the environment, opens the database, runs migrations, and starts the server.
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `BT_HTTP_ADDRESS` | The address the HTTP server binds to | `0.0.0.0` |
-| `BT_HTTP_PORT` | The port for the HTTP API | `8080` |
-| `BT_UDP_ADDRESS` | The address the UDP tracker binds to | `0.0.0.0` |
-| `BT_UDP_PORT` | The port for the UDP tracker | `6118` |
-| `BT_UDP_URL` | The full UDP tracker URL | `udp://localhost:6118/announce` |
-| `PEER_INTERVAL` | Peer expiry check interval | `1200` (seconds) |
-| `PEER_LIFETIME` | Peer expiry lifetime | `3600` (seconds) |
-| `TRACKER_DB_PATH` | Path to the SQLite database file | `/data/tracker.db` |
+## Install
 
-## HTTP Server
+```sh
+go build -o ./tracker ./cmd
+```
 
-The HTTP server provides a list of torrents and their peers.
+or with Docker:
+
+```sh
+docker compose up --build
+```
+
+## Usage
+
+The tracker is configured entirely through environment variables:
+
+| Variable          | Description                                       | Example                    |
+| ----------------- | -------------------------------------------------- | --------------------------- |
+| `BT_HTTP_ADDRESS`  | Address the HTTP stats server binds to             | `` (all interfaces)         |
+| `BT_HTTP_PORT`     | Port for the HTTP stats server                     | `8080`                       |
+| `BT_UDP_ADDRESS`   | Address the UDP tracker binds to                   | `` (all interfaces)         |
+| `BT_UDP_PORT`      | Port for the UDP tracker                           | `6881`                       |
+| `BT_UDP_URL`       | Announce URL embedded in generated magnet links    | `udp://localhost:6881`      |
+| `PEER_INTERVAL`    | Seconds a client is told to wait between announces | `1200`                       |
+| `PEER_LIFETIME`    | Seconds of inactivity before a peer is expired      | `3600`                       |
+| `TRACKER_DB_PATH`  | Path to the SQLite database file                   | `./tracker.db`              |
+
+```sh
+BT_HTTP_ADDRESS= BT_HTTP_PORT=8080 \
+BT_UDP_ADDRESS= BT_UDP_PORT=6881 BT_UDP_URL=udp://localhost:6881 \
+PEER_INTERVAL=1200 PEER_LIFETIME=3600 \
+TRACKER_DB_PATH=./tracker.db \
+./tracker
+```
+
+Torrents are registered automatically on their first announce, there is no separate registration step or tracker admin API. Point a client at:
 
 ```
-{
-   "ae4a048e19e6ed8ce31bc5a37f0ca03a533998a4":{
-      "magnet":"magnet:?xt=urn:btih:ae4a048e19e6ed8ce31bc5a37f0ca03a533998a4\u0026tr=udp://127.0.0.1:6881",
-      "completed":0,
-      "peers":{
-         "-TR3000-hi33owz1ajb7":{
-            "downloaded":0,
-            "left":0,
-            "uploaded":0,
-            "event":0
-         },
-         "-qB5040-1LwzYpZa67!D":{
-            "downloaded":0,
-            "left":0,
-            "uploaded":0,
-            "event":2
-         }
-      }
-   },
-   "ef278c16ebe1d63f5d1ea4d271a9a06d23a1f10b":{
-      "magnet":"magnet:?xt=urn:btih:ef278c16ebe1d63f5d1ea4d271a9a06d23a1f10b\u0026tr=udp://127.0.0.1:6881",
-      "completed":5,
-      "peers":{
-         "-qB5040-UIkh)Z270fKP":{
-            "downloaded":0,
-            "left":14128,
-            "uploaded":0,
-            "event":2
-         }
-      }
-   }
-}
+udp://<host>:<udp-port>
 ```
+
+and check swarm state at `http://<host>:<http-port>/`.
+
+## Development
+
+```sh
+make test           # go test -v ./...
+make build           # CGO_ENABLED=0 go build -o ./tracker ./cmd
+make sqlc-generate    # regenerate db/*.sql.go from queries/*.sql via sqlc
+make ci              # fmt, vet, race tests, mod tidy check, govulncheck
+```
+
+Database code is generated, not hand-written: change `queries/*.sql` or add a migration under `migrations/`, then run `make sqlc-generate`.
