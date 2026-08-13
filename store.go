@@ -67,7 +67,7 @@ func (s *store[K, V]) Map(fn func(K, V)) {
 func (s *store[K, V]) Snapshot() map[K]V {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	
+
 	// Create defensive copy
 	snapshot := make(map[K]V, len(s.data))
 	maps.Copy(snapshot, s.data)
@@ -81,12 +81,12 @@ func (s *store[K, V]) MarshalJSON() ([]byte, error) {
 			return *cached, nil
 		}
 	}
-	
+
 	// Slow path: regenerate JSON
 	s.mutex.RLock()
 	jsonData, err := json.Marshal(s.data)
 	s.mutex.RUnlock()
-	
+
 	if err == nil {
 		s.jsonCache.Store(&jsonData)
 		s.dirty.Store(false)
