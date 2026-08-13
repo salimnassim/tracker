@@ -25,3 +25,8 @@ go.work.sum
 .env
 settings.json
 .vscode
+
+# local sqlite database
+*.db
+*.db-shm
+*.db-wal
