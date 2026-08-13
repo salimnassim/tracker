@@ -9,9 +9,14 @@ services:
       - BT_UDP_ADDRESS=
       - BT_UDP_PORT=6881
       - BT_UDP_URL=udp://localhost:6881
-      - CACHE_INTERVAL=60
       - PEER_INTERVAL=1200
       - PEER_LIFETIME=3600
+      - TRACKER_DB_PATH=/data/tracker.db
     ports:
       - "8080:8080/tcp"
       - "6881:6881/udp"
+    volumes:
+      - tracker-data:/data
+
+volumes:
+  tracker-data:

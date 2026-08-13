@@ -4,14 +4,19 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"time"
 )
 
 type PeerID [20]byte
 
+func (h PeerID) String() string {
+	return hex.EncodeToString(h[:])
+}
+
 func (h PeerID) MarshalText() (text []byte, err error) {
-	return []byte(string(h[:])), nil
+	return []byte(h.String()), nil
 }
 
 type Peer struct {

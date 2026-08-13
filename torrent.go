@@ -8,8 +8,12 @@ import (
 
 type InfoHash [20]byte
 
+func (h InfoHash) String() string {
+	return hex.EncodeToString(h[:])
+}
+
 func (h InfoHash) MarshalText() (text []byte, err error) {
-	return []byte(hex.EncodeToString(h[:])), nil
+	return []byte(h.String()), nil
 }
 
 type Torrent struct {
@@ -31,7 +35,7 @@ func (t *Torrent) MarshalJSON() ([]byte, error) {
 }
 
 func NewTorrent(infoHash InfoHash, config *config) *Torrent {
-	magnet := fmt.Sprintf("magnet:?xt=urn:btih:%x&tr=%s", infoHash, config.udpURL)
+	magnet := fmt.Sprintf("magnet:?xt=urn:btih:%s&tr=%s", infoHash, config.udpURL)
 
 	return &Torrent{
 		InfoHash:  infoHash,

@@ -5,10 +5,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"log/slog"
 	"math/rand/v2"
 	"net"
-
-	"github.com/rs/zerolog/log"
 )
 
 var errorSizeMismatch = errors.New("bad message size")
@@ -54,18 +53,16 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 	err := req.unpack(request)
 	if err != nil {
 		connectionID := binary.BigEndian.Uint64(request[0:8])
-		log.Error().Err(err).
-			Int64("connection_id", int64(connectionID)).
-			Int("size", len(request)).
-			Msg("cant unpack handshake request")
+		slog.Error("cant unpack handshake request",
+			"error", err,
+			"connection_id", connectionID,
+			"size", len(request))
 		return
 	}
 
 	if req.protocolID != 0x41727101980 {
 		connectionID := binary.BigEndian.Uint64(request[0:8])
-		log.Error().Err(err).
-			Int64("connection_id", int64(connectionID)).
-			Msg("protocol id is not 0x41727101980")
+		slog.Error("protocol id is not 0x41727101980", "connection_id", connectionID)
 
 		res := &errorResponse{
 			action:        3,
@@ -76,7 +73,7 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 
 		_, err = conn.WriteToUDP(pack, addr)
 		if err != nil {
-			log.Error().Err(err).Msg("cant write udp handshake error")
+			slog.Error("cant write udp handshake error", "error", err)
 			return
 		}
 		return
@@ -96,7 +93,7 @@ func handleHandshake(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state
 
 	_, err = conn.WriteToUDP(pack, addr)
 	if err != nil {
-		log.Error().Err(err).Msg("cant write to udp")
+		slog.Error("cant write to udp", "error", err)
 		return
 	}
 }

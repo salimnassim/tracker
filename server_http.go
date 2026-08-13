@@ -3,10 +3,9 @@ package tracker
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 type httpServer struct{}
@@ -15,20 +14,26 @@ func NewHTTPServer() *httpServer {
 	return &httpServer{}
 }
 
-func handler(torrents Storer[InfoHash, *Torrent]) http.HandlerFunc {
+func handler(torrents TorrentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		result, err := torrents.ListTorrents(r.Context())
+		if err != nil {
+			slog.Error("cant list torrents", "error", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		err := json.NewEncoder(w).Encode(torrents)
-		if err != nil {
-			log.Error().Err(err).Msg("cant marshal torrents")
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			slog.Error("cant marshal torrents", "error", err)
 			return
 		}
 	}
 }
 
-func (s *httpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent]) {
+func (s *httpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler(torrents))
 
@@ -41,6 +46,6 @@ func (s *httpServer) Serve(config *config, state chan any, conns Storer[uint64, 
 	}
 
 	if err := srv.ListenAndServe(); err != nil {
-		log.Error().Err(err).Msg("http server error")
+		slog.Error("http server error", "error", err)
 	}
 }

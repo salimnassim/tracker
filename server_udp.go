@@ -5,10 +5,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -41,7 +40,7 @@ func NewUDPServer() *udpServer {
 	return &udpServer{}
 }
 
-func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent]) {
+func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore) {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.udpAddress, config.udpPort))
 	if err != nil {
 		state <- err
@@ -54,8 +53,8 @@ func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, t
 		return
 	}
 
-	buffer := make([]byte, 256)
 	for {
+		buffer := make([]byte, 256)
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			state <- err
@@ -66,9 +65,9 @@ func (s *udpServer) Serve(config *config, state chan any, conns Storer[uint64, t
 	}
 }
 
-func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent]) {
+func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore) {
 	if len(request) < 16 {
-		log.Error().Msgf("packet size less than 16")
+		slog.Error("packet size less than 16")
 		return
 	}
 
@@ -76,20 +75,17 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 	action := binary.BigEndian.Uint32(request[8:12])
 	transactionID := binary.BigEndian.Uint32(request[12:16])
 
-	log.Debug().
-		Uint64("connection_id", connectionID).
-		Uint32("action", action).
-		Uint32("transaction_id", transactionID).
-		Msg("request")
+	slog.Debug("request",
+		"connection_id", connectionID,
+		"action", action,
+		"transaction_id", transactionID)
 
 	switch action {
 	case actionHandshake:
 		handleHandshake(conn, addr, request, state)
 	case actionAnnounce:
 		if _, ok := conns.Get(connectionID); !ok {
-			log.Error().
-				Uint64("connection_id", connectionID).
-				Msg("connection id not found for announce")
+			slog.Error("connection id not found for announce", "connection_id", connectionID)
 
 			res := &errorResponse{
 				action:        3,
@@ -100,8 +96,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 			_, err := conn.WriteToUDP(pack, addr)
 			if err != nil {
-				log.Error().Err(err).
-					Msg("cant write udp handle error")
+				slog.Error("cant write udp handle error", "error", err)
 				return
 			}
 			return
@@ -110,8 +105,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 		handleAnnounce(conn, addr, request, state, torrents)
 	case actionScrape:
 		if _, ok := conns.Get(connectionID); !ok {
-			log.Error().Uint64("connection_id", connectionID).
-				Msg("connection id not found for scrape")
+			slog.Error("connection id not found for scrape", "connection_id", connectionID)
 			res := &errorResponse{
 				action:        3,
 				transactionID: transactionID,
@@ -121,8 +115,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 			_, err := conn.WriteToUDP(pack, addr)
 			if err != nil {
-				log.Error().Err(err).
-					Msg("cant write udp handle error")
+				slog.Error("cant write udp handle error", "error", err)
 				return
 			}
 			return
@@ -130,11 +123,10 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 		handleScrape(conn, addr, request, state, torrents)
 	default:
-		log.Error().
-			Uint64("connection_id", connectionID).
-			Uint32("action", action).
-			Uint32("transaction_id", transactionID).
-			Msgf("unknown action")
+		slog.Error("unknown action",
+			"connection_id", connectionID,
+			"action", action,
+			"transaction_id", transactionID)
 
 		res := &errorResponse{
 			action:        3,
@@ -145,8 +137,7 @@ func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any
 
 		_, err := conn.WriteToUDP(pack, addr)
 		if err != nil {
-			log.Error().Err(err).
-				Msg("cant write udp unknown action error")
+			slog.Error("cant write udp unknown action error", "error", err)
 			return
 		}
 		return

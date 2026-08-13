@@ -3,10 +3,10 @@ package tracker
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
+	"log/slog"
 	"net"
-
-	"github.com/rs/zerolog/log"
 )
 
 type announceRequest struct {
@@ -73,26 +73,31 @@ func (r *announceResponse) pack() []byte {
 	return buffer.Bytes()
 }
 
-func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[InfoHash, *Torrent]) {
+func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents TorrentStore) {
 	req := &announceRequest{}
 	err := req.unpack(request)
 	if err != nil {
 		connectionID := binary.BigEndian.Uint64(request[0:8])
-		log.Error().Err(err).
-			Int64("connection_id", int64(connectionID)).
-			Int("size", len(request)).
-			Msg("cant unpack announce request")
+		slog.Error("cant unpack announce request",
+			"error", err,
+			"connection_id", connectionID,
+			"size", len(request))
 		return
 	}
 
 	ip := addr.IP.To4()
 	if ip == nil {
-		log.Error().Msg("invalid ipv4 address")
+		slog.Error("invalid ipv4 address")
 		return
 	}
 
-	torrent, ok := torrents.Get(req.infoHash)
-	if !ok {
+	infoHash := InfoHash(req.infoHash)
+	torrent, err := torrents.GetTorrent(context.Background(), infoHash)
+	if err != nil {
+		slog.Error("cant get torrent", "error", err, "info_hash", infoHash.String())
+		return
+	}
+	if torrent == nil {
 		state <- eventRegisterTorrent{
 			InfoHash: req.infoHash,
 		}
@@ -120,7 +125,7 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 
 		_, err := conn.WriteToUDP(pack, addr)
 		if err != nil {
-			log.Error().Err(err).Msg("cant write udp")
+			slog.Error("cant write udp", "error", err)
 			return
 		}
 		return
@@ -150,7 +155,7 @@ func handleAnnounce(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state 
 
 	_, err = conn.WriteToUDP(pack, addr)
 	if err != nil {
-		log.Error().Err(err).Msg("cant write udp")
+		slog.Error("cant write udp", "error", err)
 		return
 	}
 }

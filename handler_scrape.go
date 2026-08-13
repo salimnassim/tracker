@@ -3,10 +3,10 @@ package tracker
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
+	"log/slog"
 	"net"
-
-	"github.com/rs/zerolog/log"
 )
 
 type scrapeRequest struct {
@@ -59,15 +59,15 @@ func (r *scrapeResponse) pack() []byte {
 	return buffer.Bytes()
 }
 
-func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents Storer[InfoHash, *Torrent]) {
+func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, torrents TorrentStore) {
 	req := &scrapeRequest{}
 	err := req.unpack(request)
 	if err != nil {
 		connectionID := binary.BigEndian.Uint64(request[0:8])
-		log.Error().Err(err).
-			Int64("connection_id", int64(connectionID)).
-			Int("size", len(request)).
-			Msg("cant unpack scrape request")
+		slog.Error("cant unpack scrape request",
+			"error", err,
+			"connection_id", connectionID,
+			"size", len(request))
 		return
 	}
 
@@ -86,21 +86,16 @@ func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state ch
 			break
 		}
 
-		torrent, ok := torrents.Get(infoHash)
-		if !ok {
-			res := &errorResponse{
-				action:        3,
-				transactionID: req.transactionID,
-				message:       "Torrent not found",
-			}
-			pack := res.pack()
-
-			_, err = conn.WriteToUDP(pack, addr)
-			if err != nil {
-				log.Error().Err(err).Msg("cant write udp scrape error")
-				return
-			}
+		torrent, err := torrents.GetTorrent(context.Background(), InfoHash(infoHash))
+		if err != nil {
+			slog.Error("cant get torrent for scrape", "error", err)
 			return
+		}
+		if torrent == nil {
+			res.seeders = append(res.seeders, 0)
+			res.completed = append(res.completed, 0)
+			res.leechers = append(res.leechers, 0)
+			continue
 		}
 
 		leechers, seeders, completed, _ := torrent.state()
@@ -112,7 +107,7 @@ func handleScrape(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state ch
 
 	_, err = conn.WriteToUDP(pack, addr)
 	if err != nil {
-		log.Error().Err(err).Msg("cant write udp scrape response")
+		slog.Error("cant write udp scrape response", "error", err)
 		return
 	}
 }

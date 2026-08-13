@@ -2,12 +2,10 @@ package tracker
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -37,7 +35,7 @@ type eventRegisterTorrent struct {
 type eventPeerLifetime struct{}
 
 type Serverer interface {
-	Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent])
+	Serve(config *config, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore)
 }
 
 type server struct {
@@ -46,10 +44,10 @@ type server struct {
 
 	conns Storer[uint64, time.Time]
 
-	torrents Storer[InfoHash, *Torrent]
+	torrents TorrentStore
 }
 
-func NewServer(conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torrent]) (*server, error) {
+func NewServer(conns Storer[uint64, time.Time], torrents TorrentStore) (*server, error) {
 	if conns == nil {
 		return nil, fmt.Errorf("%w: conns store", errorServerArg)
 	}
@@ -68,11 +66,11 @@ func NewServer(conns Storer[uint64, time.Time], torrents Storer[InfoHash, *Torre
 func (s *server) Start(config *config, servers []Serverer) error {
 	for _, server := range servers {
 		go server.Serve(config, s.state, s.conns, s.torrents)
-		log.Info().Str("type", fmt.Sprintf("%T", server)).Msg("started server")
+		slog.Info("started server", "type", fmt.Sprintf("%T", server))
 	}
 
 	go func(s *server) {
-		log.Info().Msg("started peer ticker")
+		slog.Info("started peer ticker")
 		peerTicker := time.NewTicker(config.peerInterval * time.Second)
 		for range peerTicker.C {
 			s.state <- eventPeerLifetime{}
@@ -84,26 +82,36 @@ func (s *server) Start(config *config, servers []Serverer) error {
 		case eventConnection:
 			s.conns.Set(e.ConnectionID, time.Now().UTC())
 
-			log.Info().
-				Uint64("connection_id", e.ConnectionID).
-				Msg("connection created")
+			slog.Info("connection created", "connection_id", e.ConnectionID)
 		case eventAnnounce:
-			log.Info().
-				Str("peer_id", hex.EncodeToString(e.PeerId[:])).
-				Msg("announce")
+			slog.Info("announce", "peer_id", e.PeerId.String())
 
-			torrent, ok := s.torrents.Get(e.InfoHash)
-			if !ok {
-				log.Error().
-					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
-					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
-					Msg("announce torrent not found")
+			torrent, err := s.torrents.GetTorrent(s.ctx, e.InfoHash)
+			if err != nil {
+				slog.Error("announce get torrent failed",
+					"info_hash", e.InfoHash.String(),
+					"peer_id", e.PeerId.String(),
+					"error", err)
+				continue
+			}
+			if torrent == nil {
+				slog.Error("announce torrent not found",
+					"info_hash", e.InfoHash.String(),
+					"peer_id", e.PeerId.String())
 				continue
 			}
 
-			peer, ok := torrent.Peers[e.PeerId]
-			if !ok {
-				torrent.Peers[e.PeerId] = &Peer{
+			existingPeer, err := s.torrents.GetPeer(s.ctx, e.InfoHash, e.PeerId)
+			if err != nil {
+				slog.Error("announce get peer failed",
+					"info_hash", e.InfoHash.String(),
+					"peer_id", e.PeerId.String(),
+					"error", err)
+				continue
+			}
+
+			if existingPeer == nil {
+				peer := &Peer{
 					Event:      e.Event,
 					Left:       e.Left,
 					Downloaded: e.Downloaded,
@@ -113,78 +121,85 @@ func (s *server) Start(config *config, servers []Serverer) error {
 					Key:        e.Key,
 					Time:       time.Now().UTC(),
 				}
+				if err := s.torrents.UpsertPeer(s.ctx, e.InfoHash, e.PeerId, peer); err != nil {
+					slog.Error("announce create peer failed",
+						"info_hash", e.InfoHash.String(),
+						"peer_id", e.PeerId.String(),
+						"error", err)
+					continue
+				}
 
-				log.Info().
-					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
-					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
-					Msg("announce peer created")
+				slog.Info("announce peer created",
+					"info_hash", e.InfoHash.String(),
+					"peer_id", e.PeerId.String())
 				continue
 			}
 
-			if peer.Key != 0 && peer.Key != e.Key {
-				log.Info().
-					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
-					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
-					Msg("announce peer key mismatch")
+			if existingPeer.Key != 0 && existingPeer.Key != e.Key {
+				slog.Info("announce peer key mismatch",
+					"info_hash", e.InfoHash.String(),
+					"peer_id", e.PeerId.String())
 				continue
 			}
 
 			if e.Event == 1 {
-				torrent.Completed = torrent.Completed + 1
+				if err := s.torrents.IncrementCompleted(s.ctx, e.InfoHash); err != nil {
+					slog.Error("announce increment completed failed",
+						"info_hash", e.InfoHash.String(),
+						"peer_id", e.PeerId.String(),
+						"error", err)
+					continue
+				}
 
-				log.Info().
-					Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
-					Str("peer_id", hex.EncodeToString(e.PeerId[:])).
-					Msg("announce completed")
+				slog.Info("announce completed",
+					"info_hash", e.InfoHash.String(),
+					"peer_id", e.PeerId.String())
 			}
 
-			peer.Event = e.Event
-			peer.Left = e.Left
-			peer.Downloaded = e.Downloaded
-			peer.Uploaded = e.Uploaded
-			peer.IP = e.IP
-			peer.Port = e.Port
-			peer.Time = time.Now().UTC()
+			updatedPeer := &Peer{
+				Event:      e.Event,
+				Left:       e.Left,
+				Downloaded: e.Downloaded,
+				Uploaded:   e.Uploaded,
+				IP:         e.IP,
+				Port:       e.Port,
+				Key:        existingPeer.Key,
+				Time:       time.Now().UTC(),
+			}
+			if err := s.torrents.UpsertPeer(s.ctx, e.InfoHash, e.PeerId, updatedPeer); err != nil {
+				slog.Error("announce update peer failed",
+					"info_hash", e.InfoHash.String(),
+					"peer_id", e.PeerId.String(),
+					"error", err)
+				continue
+			}
 
-			log.Info().
-				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
-				Str("peer_id", hex.EncodeToString(e.PeerId[:])).
-				Msg("peer updated")
+			slog.Info("peer updated",
+				"info_hash", e.InfoHash.String(),
+				"peer_id", e.PeerId.String())
 
 		case eventRegisterTorrent:
 			torrent := NewTorrent(e.InfoHash, config)
-			s.torrents.Set(e.InfoHash, torrent)
+			if err := s.torrents.RegisterTorrent(s.ctx, torrent); err != nil {
+				slog.Error("torrent register failed",
+					"info_hash", InfoHash(e.InfoHash).String(),
+					"error", err)
+				continue
+			}
 
-			log.Info().
-				Str("info_hash", hex.EncodeToString(e.InfoHash[:])).
-				Msg("torrent registered")
+			slog.Info("torrent registered", "info_hash", InfoHash(e.InfoHash).String())
 
 		case eventPeerLifetime:
-			s.torrents.Map(func(ih InfoHash, t *Torrent) {
-				expiredPeers := []PeerID{}
-				for peerID, peer := range t.Peers {
-					if time.Now().After(peer.Time.Add(config.peerLifetime * time.Second)) {
-						expiredPeers = append(expiredPeers, peerID)
-					}
-				}
-				if len(expiredPeers) == 0 {
-					log.Debug().
-						Str("info_hash", hex.EncodeToString(ih[:])).
-						Msg("expired peers not found")
-					return
-				}
-
-				for _, peer := range expiredPeers {
-					delete(t.Peers, peer)
-				}
-
-				log.Debug().
-					Str("info_hash", hex.EncodeToString(ih[:])).
-					Msg("expired peers deleted")
-			})
+			cutoff := time.Now().Add(-config.peerLifetime * time.Second)
+			deleted, err := s.torrents.DeleteExpiredPeers(s.ctx, cutoff)
+			if err != nil {
+				slog.Error("expired peer cleanup failed", "error", err)
+				continue
+			}
+			slog.Debug("expired peers deleted", "count", deleted)
 
 		case error:
-			log.Error().Err(e)
+			slog.Error("server error", "error", e)
 		}
 	}
 
