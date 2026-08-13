@@ -1,0 +1,19 @@
+{{define "content"}}
+<section aria-labelledby="detail-heading">
+  {{template "back-link" .}}
+  <h2 id="detail-heading" class="detail-heading">{{.Hash}}</h2>
+  <div class="pills-row">
+    {{range .Pills}}{{template "stat-pill" .}}{{end}}
+  </div>
+  <div class="magnet-block">
+    <label for="magnet-uri" class="magnet-label">Magnet URI</label>
+    <input id="magnet-uri" type="text" readonly value="{{.Magnet}}" class="magnet-input">
+    <div class="button-row">
+      <a href="{{.Magnet | safeURL}}" class="btn btn--outline">Open</a>
+      <button type="button" class="btn btn--ghost" data-copy data-copy-value="{{.Magnet}}">Copy magnet</button>
+      <button type="button" class="btn btn--ghost" data-copy data-copy-value="{{.Hash}}">Copy hash</button>
+    </div>
+  </div>
+  {{template "peer-table" .}}
+</section>
+{{end}}

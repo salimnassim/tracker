@@ -1,0 +1,18 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tracker</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+<main id="main-content" class="main">
+{{template "content" .}}
+</main>
+</div>
+<script src="/static/copy.js" defer></script>
+</body>
+</html>
+{{end}}

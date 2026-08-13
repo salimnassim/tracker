@@ -1,11 +1,15 @@
 # tracker
 
-A UDP BitTorrent tracker written in Go. It handles the connect/announce/scrape handshake, persists torrents and peers to SQLite, and exposes a small HTTP endpoint for inspecting swarm state.
+A UDP BitTorrent tracker written in Go. It handles the connect/announce/scrape handshake, persists torrents and peers to SQLite, and serves a small HTML UI (plus a JSON API) for inspecting swarm state.
 
 ## Contents
 
 - `server_udp.go`, `handler_handshake.go`, `handler_announce.go`, `handler_scrape.go` the UDP tracker protocol: connection ID handshake, peer announces, and swarm scraping.
-- `server_http.go` a read-only HTTP endpoint (`GET /`) that dumps all known torrents and peers as JSON.
+- `server_http.go` the HTTP server: an HTML UI (`GET /` torrent list, `GET /torrents/{hash}` peer detail), static assets (`GET /static/`), and a read-only JSON API (`GET /api/torrents`) that dumps all known torrents and peers.
+- `view.go` template helper functions (byte formatting, event labels, hash truncation) and the view-model types/constructors (`listPageData`, `detailPageData`) consumed by the HTML templates.
+- `assets.go` embeds `templates/` and `static/` into the binary via `embed.FS`.
+- `templates/` HTML templates for the web UI: layout, list and detail pages, and shared components (peer table, torrent table, stat pills, magnet icon, back link).
+- `static/` static assets for the web UI: `style.css` and a small `copy.js` for the copy-to-clipboard buttons.
 - `server.go` the event loop tying UDP/HTTP servers together, applying announces, registering new torrents, and expiring stale peers on a timer.
 - `torrent.go`, `peer.go` core domain types (`Torrent`, `Peer`, `InfoHash`, `PeerID`) and swarm state (seeders/leechers/completed) derivation.
 - `store.go` a generic in-memory, JSON-marshalable key/value store used for tracking active UDP connection IDs.
@@ -30,9 +34,9 @@ The tracker is configured entirely through environment variables:
 
 | Variable          | Description                                       | Example                    |
 | ----------------- | -------------------------------------------------- | --------------------------- |
-| `BT_HTTP_ADDRESS`  | Address the HTTP stats server binds to             | `` (all interfaces)         |
+| `BT_HTTP_ADDRESS`  | Address the HTTP stats server binds to             | `<empty>` (all interfaces)         |
 | `BT_HTTP_PORT`     | Port for the HTTP stats server                     | `8080`                       |
-| `BT_UDP_ADDRESS`   | Address the UDP tracker binds to                   | `` (all interfaces)         |
+| `BT_UDP_ADDRESS`   | Address the UDP tracker binds to                   | `<empty>` (all interfaces)         |
 | `BT_UDP_PORT`      | Port for the UDP tracker                           | `6881`                       |
 | `BT_UDP_URL`       | Announce URL embedded in generated magnet links    | `udp://localhost:6881`      |
 | `PEER_INTERVAL`    | Seconds a client is told to wait between announces | `1200`                       |
@@ -53,7 +57,7 @@ Torrents are registered automatically on their first announce, there is no separ
 udp://<host>:<udp-port>
 ```
 
-and check swarm state at `http://<host>:<http-port>/`.
+and browse swarm state at `http://<host>:<http-port>/` (a list of torrents, drilling into `/torrents/<info-hash>` for peer detail), or fetch it as JSON from `http://<host>:<http-port>/api/torrents`.
 
 ## Development
 

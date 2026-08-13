@@ -1,0 +1,31 @@
+{{define "peer-table"}}
+{{if .HasPeers}}
+<p class="section-note">Peers announced for this torrent</p>
+<table class="peer-table">
+  <thead>
+    <tr>
+      <th scope="col" class="th">Peer ID</th>
+      <th scope="col" class="th">Status</th>
+      <th scope="col" class="th">Downloaded</th>
+      <th scope="col" class="th">Uploaded</th>
+      <th scope="col" class="th">Left</th>
+      {{if .ShowEvent}}<th scope="col" class="th">Event</th>{{end}}
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Peers}}
+    <tr>
+      <td class="td td--peer-id" title="{{.IDHex}}">{{.ID}}</td>
+      <td class="td"><span class="pill {{if .IsSeeding}}pill--seeding{{else}}pill--leeching{{end}}">{{.StatusLabel}}</span></td>
+      <td class="td">{{.DownloadedFmt}}</td>
+      <td class="td">{{.UploadedFmt}}</td>
+      <td class="td">{{.LeftFmt}}</td>
+      {{if $.ShowEvent}}<td class="td td--event">{{.EventLabel}}</td>{{end}}
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty-state">No peers currently announced.</p>
+{{end}}
+{{end}}

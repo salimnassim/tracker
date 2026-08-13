@@ -1,0 +1,28 @@
+{{define "torrent-table"}}
+<table id="torrent-table" class="torrent-table">
+  <thead>
+    <tr>
+      <th scope="col" class="th th--fill">Infohash</th>
+      <th scope="col" class="th th--seeders">Seeders</th>
+      <th scope="col" class="th th--leechers">Leechers</th>
+      <th scope="col" class="th th--peers">Peers</th>
+      <th scope="col" class="th th--completed">Completed</th>
+      <th scope="col" class="th th--magnet"><span class="visually-hidden">Magnet link</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Torrents}}
+    <tr>
+      <td class="td td--hash"><a href="/torrents/{{.Hash}}" title="{{.Hash}}" class="hash-link">{{.Hash}}</a></td>
+      <td data-label="Seeders" class="td">{{.Seeders}}</td>
+      <td data-label="Leechers" class="td">{{.Leechers}}</td>
+      <td data-label="Peers" class="td">{{.PeerCount}}</td>
+      <td data-label="Completed" class="td">{{.Completed}}</td>
+      <td class="td td--magnet-cell">
+        <a href="{{.Magnet | safeURL}}" aria-label="Open magnet link for {{.HashShort}}" class="magnet-button">{{template "magnet-icon"}}</a>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
