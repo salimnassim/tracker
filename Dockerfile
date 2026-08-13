@@ -3,7 +3,7 @@ WORKDIR /app
 COPY go.* ./
 RUN go mod download
 COPY . ./
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o ./tracker ./cmd
+RUN CGO_ENABLED=0 go build -o ./tracker ./cmd
 
 FROM scratch
 COPY --from=builder /app/tracker /app/tracker
