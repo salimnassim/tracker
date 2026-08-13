@@ -16,6 +16,14 @@ func (h InfoHash) MarshalText() (text []byte, err error) {
 	return []byte(h.String()), nil
 }
 
+func ParseInfoHash(s string) (InfoHash, error) {
+	b, err := hex.DecodeString(s)
+	if err != nil || len(b) != 20 {
+		return InfoHash{}, fmt.Errorf("invalid info hash: %q", s)
+	}
+	return InfoHash(b), nil
+}
+
 type Torrent struct {
 	InfoHash  InfoHash         `json:"-"`
 	Magnet    string           `json:"magnet"`
