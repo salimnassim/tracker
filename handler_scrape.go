@@ -17,7 +17,7 @@ type scrapeRequest struct {
 }
 
 func (r *scrapeRequest) unpack(bytes []byte) error {
-	if len(bytes) < 20 {
+	if len(bytes) < 20 || (len(bytes)-16)%20 != 0 {
 		return errorSizeMismatch
 	}
 
