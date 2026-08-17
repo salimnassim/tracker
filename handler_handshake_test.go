@@ -46,3 +46,18 @@ func TestConnectResponse(t *testing.T) {
 		}
 	})
 }
+
+func FuzzHandshakeUnpack(f *testing.F) {
+	f.Add([]byte{0x00, 0x04, 0x17, 0x27, 0x10, 0x19, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78})
+	f.Add(make([]byte, 0))
+	f.Add(make([]byte, 15))
+	f.Add(make([]byte, 17))
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		req := &handshakeRequest{}
+		err := req.unpack(data)
+		if err != nil && err != errorSizeMismatch {
+			t.Errorf("unpack returned unexpected error: %v", err)
+		}
+	})
+}
