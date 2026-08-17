@@ -77,6 +77,14 @@ func (s *udpServer) Serve(ctx context.Context, config *config, state chan any, c
 }
 
 func handle(conn *net.UDPConn, addr *net.UDPAddr, request []byte, state chan any, conns Storer[uint64, time.Time], torrents TorrentStore) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic in udp handler, dropping packet",
+				"panic", r,
+				"remote_addr", addr.String())
+		}
+	}()
+
 	if len(request) < 16 {
 		slog.Error("packet size less than 16")
 		return
