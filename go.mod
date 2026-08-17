@@ -1,6 +1,6 @@
 module github.com/salimnassim/tracker
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/pressly/goose/v3 v3.27.3
